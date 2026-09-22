@@ -1,7 +1,12 @@
 {
-  "version": "STATE v15 - 2026-09-20 UPSTREAM PR OPEN @9eee0d1d..22da1f56 line",
-  "project": "gearmulator-md-mm-alpha12 (Elektron MD+MM fork, release/md-mm-alpha branch)",
-  "status": "UPSTREAM PR SUBMITTED: joelanders/gearmulator-md-mm#97 'MM Windows realtime: UC batch + memory fast lane + idle-skip composition (ASIO 128 verified)' — 8 commits on branch perf/mm-windows-realtime (from upstream tip ab69ad00), pushed to fork Tuth/gearmulator-md-mm. Submodule pin untouched (upstream 1378c430 verified in branch HEAD). JITSTATS instrumentation (submodule 8b164f42) deliberately NOT in the PR — separate path if joelanders wants it.",
+  "version": "STATE v16 - 2026-09-22 integration A/B done: alpha.14+PR97 combo VERIFIED SAFE",
+  "project": "gearmulator-md-mm-alpha12 (Elektron MD+MM fork)",
+  "status": "Integration branch integration/alpha14-pr97 (merge 5883cca2 from upstream tip 8cea0524) verified: merge trivially clean (alpha.14 touched none of our files), both firmware probes PASS, CYCLES deterministic, idle-skip intact. A/B on clean machine (Nord G1 emu contamination closed by Thor; all pre-contamination numbers discarded): PR97 leg median 5.320ms vs combo median 5.395ms = +1.4%, within machine noise, no systematic regression. Max spikes (12-25ms, ~1/7 windows) present EQUALLY on both legs = Windows preemption, not the combo. VST3 build from combo requested by Thor.",
+  "integration_ab": {
+    "leg1_pr97": "median 5.320 ms, mean 5.380, min 5.128, REALTIME_OK 74/78 windows",
+    "leg2_combo": "median 5.395 ms, mean 5.466, min 5.170, REALTIME_OK 72/78 windows",
+    "fidelity": "mmAudioFirmwareTest PASS + mmBootFirmwareTest PASS on combo; uc=2038329269, dsp1=5136588473, dsp2=5136606420; idle-skip 3715682"
+  },
   "pr_97_contents": [
     "74c5a07f Fix Windows audio-thread heap allocation + MM producer ESSI1 drain",
     "75fe7e92 Windows realtime fixes: thread priority in processBlock + component profiler",
@@ -12,17 +17,16 @@
     "5f9bcc71 Compose idle-skip with UC batch (batch-exit fixed-point signature)",
     "e0e86d6a UC batch default ON at 16 (env override, cap 32)"
   ],
-  "pr_97_evidence": "Headless probes: batch-OFF ~6.05ms -> composed 5.13-5.50ms block avg, UC 129->106-115ms, idle-skip restored 3.7M, first REALTIME OK. Fidelity gates PASS at every step (RMS/roughness 6-track + cold/edited/restore boot), cycles bit-identical across fast lane. Host: CPU 99.9->89->lower, ASIO 128 clean on MD+MM (Thor, UMC ASIO 44.1k).",
-  "next_session_first_question": "PR #97 awaits joelanders review. Watch: CI status on the PR (gh pr checks 97 -R joelanders/gearmulator-md-mm), review comments, merge. If the upstream CI runs the firmware probes without fixtures they will SKIP (return 77) not fail. Our local release/md-mm-alpha keeps STATE.json + submodule JITSTATS commit; keep them until upstream decides.",
+  "next_session_first_question": "Combo VST3 built and handed to Thor for host test (ASIO 128 expectation). PR #97 still OPEN with CI green - consider posting A/B integration evidence as PR comment. If Thor confirms combo VST3 clean in host, the mainline path is fully proven.",
   "facts": {
-    "fork": "Tuth/gearmulator-md-mm (created from joelanders/gearmulator-md-mm). Push protocol https, gh auth Tuth.",
-    "cherry_pick_notes": "Two probe-file conflict pairs resolved (our instrumentation vs upstream's reportIdle/window rework of render()): kept incoming for e5ee4085 (insertions), kept HEAD for 1f46bc37 (content already present via previous commit). STATE.json stripped from the first cherry-picked commit via amend --no-edit after git rm --cached.",
-    "local_only_items": "STATE.json (A2A protocol), submodule commit 8b164f42 (JITSTATS counters, env-gated) — neither in PR #97"
+    "fork": "Tuth/gearmulator-md-mm, gh auth Tuth, upstream joelanders/gearmulator-md-mm",
+    "measurement_lesson": "Background CPU hogs (headless Nord G1 emu) invalidate wall-clock A/B - check idle CPU before measuring",
+    "local_only_items": "STATE.json (A2A), submodule JITSTATS commit 8b164f42 - neither in PR #97"
   },
   "open_items": [
-    "Watch PR #97 CI + review; respond to joelanders feedback",
-    "JITSTATS submodule commit 8b164f42: separate offer to upstream dsp56300 repo if asked",
-    "Measurement-infrastructure PR (policy A/B switches ce1df4b6+95d13817) still parked — optional second PR",
-    "UC JIT: parked, now clearly 'real-work acceleration only' per R3/R4c evidence"
+    "PR #97: CI green, awaiting joelanders review; post A/B evidence as comment",
+    "JITSTATS submodule commit 8b164f42: offer to upstream dsp56300 repo if asked",
+    "Measurement-infrastructure PR (policy A/B switches) parked",
+    "UC JIT: parked, 'real-work acceleration only' per R3/R4c evidence"
   ]
 }
