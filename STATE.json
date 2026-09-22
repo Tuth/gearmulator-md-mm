@@ -1,32 +1,27 @@
 {
-  "version": "STATE v16 - 2026-09-22 integration A/B done: alpha.14+PR97 combo VERIFIED SAFE",
+  "version": "STATE v17 - 2026-09-22 combo VST3 HOST-VERIFIED by Thor - gearmulator-md-mm mission CLOSED",
   "project": "gearmulator-md-mm-alpha12 (Elektron MD+MM fork)",
-  "status": "Integration branch integration/alpha14-pr97 (merge 5883cca2 from upstream tip 8cea0524) verified: merge trivially clean (alpha.14 touched none of our files), both firmware probes PASS, CYCLES deterministic, idle-skip intact. A/B on clean machine (Nord G1 emu contamination closed by Thor; all pre-contamination numbers discarded): PR97 leg median 5.320ms vs combo median 5.395ms = +1.4%, within machine noise, no systematic regression. Max spikes (12-25ms, ~1/7 windows) present EQUALLY on both legs = Windows preemption, not the combo. VST3 build from combo requested by Thor.",
-  "integration_ab": {
-    "leg1_pr97": "median 5.320 ms, mean 5.380, min 5.128, REALTIME_OK 74/78 windows",
-    "leg2_combo": "median 5.395 ms, mean 5.466, min 5.170, REALTIME_OK 72/78 windows",
-    "fidelity": "mmAudioFirmwareTest PASS + mmBootFirmwareTest PASS on combo; uc=2038329269, dsp1=5136588473, dsp2=5136606420; idle-skip 3715682"
-  },
+  "status": "COMBO VST3 (integration/alpha14-pr97, built 07:54, 23.0 MB) tested by Thor in host: works, ~1% delta from the merge - accepted as the price of the mainline path ('a kicsi eredmény is becsülendő'). Full mission now closed end-to-end: probes PASS, A/B clean-machine measured, host-verified. Next: G1-Emu Windows MIDI work at F:/MIZU/G1-Emu (separate scope).",
+  "mission_summary": "99.9% CPU / ASIO silence -> ASIO 128 @44.1k clean on MD+MM (Thor, UMC ASIO), via: ESSI1 drain + heap fix + thread priority -> UC batch-16 (gated, capped) -> fast lane (cycles bit-identical) -> idle-skip composition (f681a918) -> PR #97 upstream (CI green, awaiting review) -> alpha.14 integration verified (+1.4% median, noise-level) -> combo VST3 host-verified.",
   "pr_97_contents": [
-    "74c5a07f Fix Windows audio-thread heap allocation + MM producer ESSI1 drain",
-    "75fe7e92 Windows realtime fixes: thread priority in processBlock + component profiler",
-    "31341d47 Per-block wall-clock timing probe",
-    "8f8855ff UC batch execution experiment (env-gated) + --ucdis",
-    "aafb9d41 UC batch hardening: dynamic readiness gate + cap 32",
-    "aee17bb8 UC fast lane: inline pure-RAM dispatch",
-    "5f9bcc71 Compose idle-skip with UC batch (batch-exit fixed-point signature)",
-    "e0e86d6a UC batch default ON at 16 (env override, cap 32)"
+    "74c5a07f ESSI1 drain + heap alloc fix",
+    "75fe7e92 thread priority + profiler",
+    "31341d47 wall-clock probe",
+    "8f8855ff UC batch experiment + --ucdis",
+    "aafb9d41 batch hardening: dynamic gate + cap 32",
+    "aee17bb8 fast lane",
+    "5f9bcc71 idle-skip composition",
+    "e0e86d6a batch default 16"
   ],
-  "next_session_first_question": "Combo VST3 built and handed to Thor for host test (ASIO 128 expectation). PR #97 still OPEN with CI green - consider posting A/B integration evidence as PR comment. If Thor confirms combo VST3 clean in host, the mainline path is fully proven.",
+  "next_session_first_question": "G1-Emu Windows MIDI (F:/MIZU/G1-Emu). Real fix per repo's own ROADMAP: JUCE virtual ports need JUCE_USE_WINDOWS_MIDI_SERVICES (Windows MIDI Services backend) OR graceful fallback to real/loopMIDI ports. Haditerv fiction check done - see memory/skill notes. PR #97 still awaiting joelanders review.",
   "facts": {
-    "fork": "Tuth/gearmulator-md-mm, gh auth Tuth, upstream joelanders/gearmulator-md-mm",
-    "measurement_lesson": "Background CPU hogs (headless Nord G1 emu) invalidate wall-clock A/B - check idle CPU before measuring",
-    "local_only_items": "STATE.json (A2A), submodule JITSTATS commit 8b164f42 - neither in PR #97"
+    "measurement_lesson": "Check idle CPU before wall-clock A/B (Nord G1 emu background contamination invalidated early rounds)",
+    "fork": "Tuth/gearmulator-md-mm, upstream joelanders/gearmulator-md-mm, gh auth Tuth",
+    "local_only": "STATE.json (A2A), submodule JITSTATS 8b164f42"
   },
   "open_items": [
-    "PR #97: CI green, awaiting joelanders review; post A/B evidence as comment",
-    "JITSTATS submodule commit 8b164f42: offer to upstream dsp56300 repo if asked",
-    "Measurement-infrastructure PR (policy A/B switches) parked",
-    "UC JIT: parked, 'real-work acceleration only' per R3/R4c evidence"
+    "PR #97: CI green, awaiting review; optionally post A/B combo evidence as comment",
+    "G1-Emu Windows MIDI: new scope at F:/MIZU/G1-Emu",
+    "UC JIT / measurement-infra PR: parked"
   ]
 }
