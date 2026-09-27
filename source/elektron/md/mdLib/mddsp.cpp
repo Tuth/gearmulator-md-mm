@@ -125,11 +125,15 @@ namespace md
 		config.maxInstructionsPerBlock = 32;
 		// Likewise return from hardware DO loops regularly to service peripherals.
 		config.maxDoIterations = 4;
-#if defined(__APPLE__) && defined(__aarch64__)
-		// JIT blocks are first compiled synchronously by the audio thread. On Apple
-		// silicon, the optimizer's cold cost exceeds its measured steady-state gain.
-		config.enableOptimizer = false;
-#endif
+		// MD/MM JIT blocks are first compiled synchronously by the render thread.
+		// Profiles on Apple silicon and Windows show the optimizer's cold cost is
+		// larger than its measured steady-state benefit for this firmware path.
+		// Keep an env override for A/B probes and future host regressions.
+		if(const auto* optimizer = std::getenv("GEARMULATOR_MDMM_JIT_OPTIMIZER");
+			optimizer)
+			config.enableOptimizer = std::strcmp(optimizer, "0") != 0;
+		else
+			config.enableOptimizer = false;
 		const auto* const jitTracePtr = &m_dsp.getJit();
 		config.getBlockConfig = [dspIndex = m_index, jitTracePtr](const dsp56k::TWord _pc)
 			-> std::optional<dsp56k::JitConfig>
