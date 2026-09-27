@@ -1,5 +1,5 @@
 {
-  "version": "STATE v22 - 2026-09-27 JIT PC trace + failed naive prewarm recorded",
+  "version": "STATE v23 - 2026-09-27 JIT reason trace: mode chains, not P-memory invalidation",
   "project": "gearmulator-md-mm-alpha12 (Elektron MD+MM fork)",
   "ctx": {
     "branch": "integration/alpha14-pr97",
@@ -8,7 +8,7 @@
     "a2a_protocol": "F:/MameVirus/A2A-protocol-universal.md",
     "state_anchor_rule": "repo + STATE anchor is the memory; chat is disposable; evidence is judge; update STATE in-file and commit each round"
   },
-  "status": "MD/MM optimization is reopened under A2A. v18 repaired the stale 'mission closed / G1 next' state. v19 lands one correctness fix found during the optimization pass: Hardware::m_ucBatchEnabled now actually mirrors isFirmwareMidiReady(), so UC batch enable/disable transitions can be toggled both ways instead of repeatedly setting only the Microcontroller flag. v21 adds opt-in RT JIT attribution to the MM firmware test and confirms the big steady-state render spikes correlate with synchronous live DSP JIT compilation, not transport clamp/backpressure. v22 adds opt-in DSP JIT PC tracing and records that the first naive static graph prewarm attempt is not a fix.",
+  "status": "MD/MM optimization is reopened under A2A. v18 repaired the stale 'mission closed / G1 next' state. v19 lands one correctness fix found during the optimization pass: Hardware::m_ucBatchEnabled now actually mirrors isFirmwareMidiReady(), so UC batch enable/disable transitions can be toggled both ways instead of repeatedly setting only the Microcontroller flag. v21 adds opt-in RT JIT attribution to the MM firmware test and confirms the big steady-state render spikes correlate with synchronous live DSP JIT compilation, not transport clamp/backpressure. v22/v23 add opt-in DSP JIT PC/reason tracing and reject the first naive static graph prewarm attempt. v23 evidence: repeated live JIT PCs are explained by multiple DSP SR-mode chains, not by repeated P-memory invalidation.",
   "last_verified_host_result": "Combo VST3 alpha14+PR97 was host-verified by Thor: ASIO 128 @44.1k clean on MD+MM; PR #97 CI green upstream; +~1% integration delta accepted.",
   "current_measurements": {
     "build_tree": "F:/MIZU/gearmulator-md-mm-alpha12/temp/cmake_vs26",
@@ -19,7 +19,7 @@
     "uc_hot_regions": "--ucdis top buckets include 0x243900, 0x248200, 0x200400, 0x1000400; 0x248214 loop polls DSP2 HI08 CVR at $600001 (not HREQ)",
     "transport_scorecard_diag": "MD_TRANSPORT_DIAGNOSTICS=ON build tree temp/cmake_vs26_diag; mdTransportScorecardFirmwareTest PASS. MD/MM scheduler paths report clamp=0, backpressure=0, unexpected=0; both machines reach targets, so transport clamp/backpressure is not the current spike source.",
     "rtjit_profile": "GEARMULATOR_RT_INSTRUMENTATION=1 + GEARMULATOR_MDMM_PROFILE=1 mmAudioFirmwareTest PASS. 13 render windows: total live JIT compilations=403, jit windows=7, max block=26.0551 ms, corr(jit count, max block)=0.887, corr(jit count, avg block)=0.684. Worst windows: 26.055 ms/87 JIT, 22.941 ms/92 JIT, 15.513 ms/83 JIT.",
-    "jit_pc_trace": "GEARMULATOR_MDMM_JIT_PC_TRACE=1 + RT instrumentation mmAudioFirmwareTest PASS; log temp/diagnostics/mm_rtjit_pctrace_20260927.log. Parsed: 1238 JIT create events total, 933 unique PCs. Before BOOTTRACE: 889 events / 777 unique. After BOOTTRACE: 349 events / 184 unique, with repeated low-vector PCs (DSP1 top 000235x20/00000cx11; DSP2 top 000208x16/00000cx9). RTJIT windows still total 403 live compiles, so this trace is diagnostic, not a fix.",
+    "jit_pc_trace": "GEARMULATOR_MDMM_JIT_PC_TRACE=1 + RT instrumentation mmAudioFirmwareTest PASS; bounded log temp/diagnostics/mm_jit_reason_trace_small_20260927.log is 0.154 MB / 2729 lines. Parsed emits: DSP1=635, DSP2=597, unknown bootstrap=2. Post-BOOTTRACE emits: DSP1=231, DSP2=114. RTJIT windows=13, live compiles=403, max block=28.8517 ms. Top repeated PCs: DSP1 000235x24, 000010x14, 000219x13, 00000cx12; DSP2 000208x20, 000012x13, 0001f3x12, 000010x10. Mode chains created: DSP1=16, DSP2=14; post-BOOTTRACE new chains: DSP1=8, DSP2=1. P-memory invalidation hits only the initial bootstrap blocks (9 per DSP), not the live repeated PCs.",
     "naive_prewarm_rejected": "An env-gated post-boot static graph prewarm prototype compiled only one block per DSP (DSP2 compiled=1, DSP1 compiled=1) and did not reduce live JIT counts. It was removed rather than committed as a false optimization; next work must determine whether repeated compiles are due mode chains, P-memory invalidation, or dynamic dispatch before proposing prewarm/defer."
   },
   "facts": {
@@ -30,17 +30,17 @@
     "rejected_cvr_fast_path": "A safe MOVE.B $600001,D0 fast path that left BLT real was tested and reverted: it fired (~141k cvr-fast instr/window) but worsened UC wall time (~129 ms mean) because preventing batch from swallowing the branch cost more than the interpreter MOVE it saved. Do not revive without a full taken-iteration batch that preserves host-pump boundaries.",
     "musashi_note_from_thor": "This repo contains the locally improved Musashi under F:/MIZU/gearmulator-md-mm-alpha12/source/mc68k/Musashi. If a standard Musashi tree needs substantial fixes, use this version as the first local reference; verify diffs and contracts before transplanting anything.",
     "rtjit_diagnostic_harness": "source/elektron/md/mdLibTest/mmAudioFirmwareTest.cpp now creates a local RealtimeInstrumentation CallbackScope around each 256-frame render block only when GEARMULATOR_RT_INSTRUMENTATION=1. Env-off behavior remains the old direct hardware.processAudio path.",
-    "jit_pc_trace_harness": "source/elektron/md/mdLib/mddsp.cpp now prints [MD] DSPn JIT pc=xxxxxx from the existing getBlockConfig hook only when GEARMULATOR_MDMM_JIT_PC_TRACE=1. Default-off; useful for classifying live JIT compiles by DSP and PC."
+    "jit_pc_trace_harness": "source/elektron/md/mdLib/mddsp.cpp now prints [MD] DSPn JIT jit=<ptr> pc=xxxxxx from the existing getBlockConfig hook only when GEARMULATOR_MDMM_JIT_PC_TRACE=1. dsp56kEmu JIT also prints default-off emit/mode-new/P-memory-hit reason lines. GEARMULATOR_MDMM_JIT_MODE_TRACE=1 enables every mode reuse transition but can generate multi-GB logs; use only for a short targeted run."
   },
   "active_hypotheses": [
     "Pure time-skip for the DSP2 CVR poll loop is unsafe: CVR reads must still invoke m_readCvrCallback so DSP catch-up and host-command acceptance timing remain real.",
     "A full CVR loop accelerator is only viable if it batches taken iterations while still performing CVR reads and checking host-pump/deferred-RX/IRQ/timer/MIDI boundaries between MOVE and BLT. The single-MOVE fast path is rejected by measurement.",
     "DSP2 heavier steady-state wall time is real work, but the large per-block spikes are now attributed to synchronous live DSP JIT compilation inside render callbacks; steady non-JIT windows still hover near the 5.805 ms budget and need separate DSP2 throughput work.",
-    "A simple first-PC/static-branch prewarm is insufficient: the trace shows many dynamic/low-vector repeated compile events after boot. Next evidence target is why already-seen PCs recompile (mode chain proliferation vs P-memory invalidation vs dynamic dispatch entrypoints)."
+    "A simple first-PC/static-branch prewarm is insufficient: the trace shows dynamic/low-vector repeated compile events after boot. v23 classified the repeats: P-memory invalidation is not the main cause; the same PCs compile under multiple SR-mode JIT chains. A useful prewarm/defer fix must be mode-chain aware."
   ],
   "next_steps": [
     "If continuing UC work, prototype a full taken-iteration CVR loop batch with explicit post-CVR host boundary checks, not the rejected single-MOVE path.",
-    "If continuing DSP work, first instrument JIT creation reasons/modes and P-memory invalidations around repeated PCs (000235/000208/00000c/000010/000012/000014) before another prewarm/deferred-compile prototype. A prewarm that cannot explain repeats is likely a false fix.",
+    "If continuing DSP work, prototype a mode-chain-aware warmup/defer strategy. Candidate target set: low-vector/hot PCs 000235/000208/00000c/000010/000012/000014/0001f3/000219; it must either precompile hot PCs for observed SR-mode chains outside realtime, or avoid synchronous create() inside render callbacks without changing DSP architectural state.",
     "After JIT spikes are removed, target steady DSP2 throughput because dsp2 remains the largest total wall-time component (~149.55 ms/window vs uc ~113.18 ms and dsp1 ~98.34 ms in v21 profile).",
     "Run host/VST3 smoke with Thor after any default-on perf change; headless probes alone are not host acceptance."
   ],

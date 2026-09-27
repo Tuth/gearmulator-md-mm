@@ -130,13 +130,14 @@ namespace md
 		// silicon, the optimizer's cold cost exceeds its measured steady-state gain.
 		config.enableOptimizer = false;
 #endif
-		config.getBlockConfig = [dspIndex = m_index](const TWord _pc)
+		const auto* const jitTracePtr = &m_dsp.getJit();
+		config.getBlockConfig = [dspIndex = m_index, jitTracePtr](const dsp56k::TWord _pc)
 			-> std::optional<dsp56k::JitConfig>
 		{
 			synthLib::RealtimeInstrumentation::recordCurrentCallbackJitCompilation();
 			if(envFlagEnabled("GEARMULATOR_MDMM_JIT_PC_TRACE"))
-				std::fprintf(stderr, "[MD] DSP%u JIT pc=%06x\n",
-					dspIndex + 1, _pc);
+				std::fprintf(stderr, "[MD] DSP%u JIT jit=%p pc=%06x\n",
+					dspIndex + 1, static_cast<const void*>(jitTracePtr), _pc);
 			return {};
 		};
 		m_dsp.getJit().setConfig(config);
