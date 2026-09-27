@@ -126,14 +126,14 @@ namespace md
 		// Likewise return from hardware DO loops regularly to service peripherals.
 		config.maxDoIterations = 4;
 		// MD/MM JIT blocks are first compiled synchronously by the render thread.
-		// Profiles on Apple silicon and Windows show the optimizer's cold cost is
-		// larger than its measured steady-state benefit for this firmware path.
-		// Keep an env override for A/B probes and future host regressions.
+		// Disabling the optimizer improved the headless MM spike probe, but Thor's
+		// plugin host A/B showed MD CPU regressed and MM stayed neutral. Keep the
+		// proven host default, with an env override for diagnostics.
 		if(const auto* optimizer = std::getenv("GEARMULATOR_MDMM_JIT_OPTIMIZER");
 			optimizer)
 			config.enableOptimizer = std::strcmp(optimizer, "0") != 0;
 		else
-			config.enableOptimizer = false;
+			config.enableOptimizer = true;
 		const auto* const jitTracePtr = &m_dsp.getJit();
 		config.getBlockConfig = [dspIndex = m_index, jitTracePtr](const dsp56k::TWord _pc)
 			-> std::optional<dsp56k::JitConfig>
