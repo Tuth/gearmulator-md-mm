@@ -1,5 +1,5 @@
 {
-  "version": "STATE v19 - 2026-09-27 batch-readiness mirror fix; CVR fast path rejected by measurement",
+  "version": "STATE v20 - 2026-09-27 Musashi source note added",
   "project": "gearmulator-md-mm-alpha12 (Elektron MD+MM fork)",
   "ctx": {
     "branch": "integration/alpha14-pr97",
@@ -23,7 +23,8 @@
     "submodules_checked": "source/dsp56300=1378c430 clean, source/mc68k=ace95b3 clean",
     "stale_note_fixed": "STATE v17 local_only mentioned JITSTATS 8b164f42, but active dsp56300 submodule is 1378c430; JITSTATS is parked in history, not active in this tree",
     "a2a_correction": "v18 explicitly reopened MD/MM optimization and made this repo the active state anchor again",
-    "rejected_cvr_fast_path": "A safe MOVE.B $600001,D0 fast path that left BLT real was tested and reverted: it fired (~141k cvr-fast instr/window) but worsened UC wall time (~129 ms mean) because preventing batch from swallowing the branch cost more than the interpreter MOVE it saved. Do not revive without a full taken-iteration batch that preserves host-pump boundaries."
+    "rejected_cvr_fast_path": "A safe MOVE.B $600001,D0 fast path that left BLT real was tested and reverted: it fired (~141k cvr-fast instr/window) but worsened UC wall time (~129 ms mean) because preventing batch from swallowing the branch cost more than the interpreter MOVE it saved. Do not revive without a full taken-iteration batch that preserves host-pump boundaries.",
+    "musashi_note_from_thor": "This repo contains the locally improved Musashi under F:/MIZU/gearmulator-md-mm-alpha12/source/mc68k/Musashi. If a standard Musashi tree needs substantial fixes, use this version as the first local reference; verify diffs and contracts before transplanting anything."
   },
   "active_hypotheses": [
     "Pure time-skip for the DSP2 CVR poll loop is unsafe: CVR reads must still invoke m_readCvrCallback so DSP catch-up and host-command acceptance timing remain real.",
