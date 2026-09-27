@@ -1,42 +1,43 @@
 {
-  "version": "STATE v18 - 2026-09-26 A2A resync - MD/MM optimization reopened",
+  "version": "STATE v19 - 2026-09-27 batch-readiness mirror fix; CVR fast path rejected by measurement",
   "project": "gearmulator-md-mm-alpha12 (Elektron MD+MM fork)",
   "ctx": {
     "branch": "integration/alpha14-pr97",
-    "head_before_v18": "8780901a",
+    "base_state_commit": "42e28390",
+    "this_commit": "containing commit; see git log (self-hash cannot be embedded without changing hash)",
     "a2a_protocol": "F:/MameVirus/A2A-protocol-universal.md",
     "state_anchor_rule": "repo + STATE anchor is the memory; chat is disposable; evidence is judge; update STATE in-file and commit each round"
   },
-  "status": "Previous v17 said the MD/MM mission was closed and pointed next to G1-Emu; Thor reopened this repo for further MD/MM optimization. Working tree was clean at handoff. Current task: continue hardware-safe performance optimization for both Machinedrum and Monomachine from integration/alpha14-pr97, without losing A2A state again.",
+  "status": "MD/MM optimization is reopened under A2A. v18 repaired the stale 'mission closed / G1 next' state. v19 lands one correctness fix found during the optimization pass: Hardware::m_ucBatchEnabled now actually mirrors isFirmwareMidiReady(), so UC batch enable/disable transitions can be toggled both ways instead of repeatedly setting only the Microcontroller flag.",
   "last_verified_host_result": "Combo VST3 alpha14+PR97 was host-verified by Thor: ASIO 128 @44.1k clean on MD+MM; PR #97 CI green upstream; +~1% integration delta accepted.",
   "current_measurements": {
     "build_tree": "F:/MIZU/gearmulator-md-mm-alpha12/temp/cmake_vs26",
-    "baseline_mm_probe": "mmAudioFirmwareTest.exe PASS with GEARMULATOR_MM_FIRMWARE_BIN=C:/Users/Thor/Documents/Gearmulator Preview/Monomachine/roms/elektron_sfx6-60_os1.32b.bin",
-    "baseline_md_probe": "mdAudioFirmwareTest.exe PASS with MD 1.63 and MM 1.32b randomized scheduler/resampler soak",
-    "mm_realtime_budget": "256 frames @44.1k = 5.805 ms; current windows average roughly 5.3-5.9 ms with occasional one-off max spikes",
-    "component_profile": "UC about 100-113 ms/window, DSP1 about 90-110 ms/window, DSP2 about 137-156 ms/window; DSP2 heavier steady-state work remains real",
+    "build_gate": "cmake --build temp/cmake_vs26 --config Release --target mmAudioFirmwareTest mdAudioFirmwareTest mmBootFirmwareTest -j 4 => exit 0",
+    "mm_probe": "GEARMULATOR_MDMM_PROFILE=1 mmAudioFirmwareTest.exe => PASS; latest noisy window mean 5.849 ms / UC mean 115.9 ms, but audio/RMS oracle passed",
+    "md_probe": "mdAudioFirmwareTest.exe => MD 1.63 randomized scheduler/resampler soak PASS; MM 1.32b randomized scheduler/resampler soak PASS",
+    "mm_boot_probe": "mmBootFirmwareTest.exe => PASS, cold boot, edited kit and state-restored boot",
     "uc_hot_regions": "--ucdis top buckets include 0x243900, 0x248200, 0x200400, 0x1000400; 0x248214 loop polls DSP2 HI08 CVR at $600001 (not HREQ)"
   },
   "facts": {
     "fork": "Tuth/gearmulator-md-mm, upstream joelanders/gearmulator-md-mm, gh auth Tuth",
     "submodules_checked": "source/dsp56300=1378c430 clean, source/mc68k=ace95b3 clean",
     "stale_note_fixed": "STATE v17 local_only mentioned JITSTATS 8b164f42, but active dsp56300 submodule is 1378c430; JITSTATS is parked in history, not active in this tree",
-    "a2a_correction": "v17 closed the mission; v18 explicitly reopens MD/MM optimization and makes this repo the active state anchor again"
+    "a2a_correction": "v18 explicitly reopened MD/MM optimization and made this repo the active state anchor again",
+    "rejected_cvr_fast_path": "A safe MOVE.B $600001,D0 fast path that left BLT real was tested and reverted: it fired (~141k cvr-fast instr/window) but worsened UC wall time (~129 ms mean) because preventing batch from swallowing the branch cost more than the interpreter MOVE it saved. Do not revive without a full taken-iteration batch that preserves host-pump boundaries."
   },
   "active_hypotheses": [
-    "Safe next UC optimization is a narrow Monomachine DSP2 CVR poll-loop accelerator: detect exact `move.b $600001,D0; blt` loop at 0x248214 after a real taken branch, perform each synthetic taken iteration by still reading CVR so existing callbacks and DSP catch-up run, account exactly 7 ColdFire cycles, and stop before any timer/UART/MIDI/panel/flash/host-pump/deferred-host-RX/IRQ boundary.",
-    "Do not implement a pure HREQ/time jump: $600001 is CVR, HREQ is ISR at $600002. Blindly adding UC cycles would skip m_readCvrCallback and break DSP catch-up/HREQ timing.",
-    "DSP max-slice spikes are likely cold/JIT/host-timing one-offs, not scheduler clamp or recompile storm; prior JITSTATS history refuted a recompile storm with scattered symmetric compile counts. A diagnostic build with MD_TRANSPORT_DIAGNOSTICS=ON can verify clamp hits if needed."
+    "Pure time-skip for the DSP2 CVR poll loop is unsafe: CVR reads must still invoke m_readCvrCallback so DSP catch-up and host-command acceptance timing remain real.",
+    "A full CVR loop accelerator is only viable if it batches taken iterations while still performing CVR reads and checking host-pump/deferred-RX/IRQ/timer/MIDI boundaries between MOVE and BLT. The single-MOVE fast path is rejected by measurement.",
+    "DSP2 heavier steady-state wall time appears real work, not scheduler clamp or JIT recompile storm; deeper DSP optimization needs a separate diagnostic/profiling pass."
   ],
   "next_steps": [
-    "Implement the minimal CVR poll-loop accelerator behind strict Monomachine/signature/boundary guards.",
-    "Build mmAudioFirmwareTest/mdAudioFirmwareTest and run MM + MD firmware probes with the same pinned ROMs.",
-    "Compare pre/post mmAudioFirmwareTest PERF/PROFILE and ensure RMS/audio gates remain unchanged.",
-    "Commit code + STATE update with measured evidence."
+    "If continuing UC work, prototype a full taken-iteration CVR loop batch with explicit post-CVR host boundary checks, not the rejected single-MOVE path.",
+    "If continuing DSP work, build MD_TRANSPORT_DIAGNOSTICS=ON scorecard or revive parked JITSTATS only for measurement, then target DSP2 steady-state hotspots with proof.",
+    "Run host/VST3 smoke with Thor after any default-on perf change; headless probes alone are not host acceptance."
   ],
   "open_items": [
     "PR #97 upstream still awaiting joelanders review",
-    "UC JIT / deeper measurement-infra PR remains parked unless the CVR-loop accelerator is insufficient",
+    "UC JIT / deeper measurement-infra PR remains parked unless the CVR-loop batch becomes worthwhile",
     "G1-Emu Windows MIDI is separate scope, not active in this repo while MD/MM optimization is reopened"
   ]
 }

@@ -1368,7 +1368,10 @@ namespace md
 		// complete AND MIDI receive interrupt enabled; all three must hold.
 		const bool firmwareReady = isFirmwareMidiReady();
 		if(firmwareReady != m_ucBatchEnabled)
+		{
+			m_ucBatchEnabled = firmwareReady;
 			m_uc.setUcBatchEnabled(firmwareReady);
+		}
 		// A DSP that is not yet runnable is parked at the target so it is never chosen as the laggard.
 		double dsp1Pos = m_schedDspOriginLatched[0] ? schedDspFramePos(0) : target;
 		double dsp2Pos = m_schedDspOriginLatched[1] ? schedDspFramePos(1) : target;
