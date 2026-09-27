@@ -6,6 +6,10 @@
 #include "mc68k/hdi08.h"
 #include "synthLib/realtimeInstrumentation.h"
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
 namespace md
 {
 	using dsp56k::TWord;
@@ -24,6 +28,12 @@ namespace md
 		// compiles cleanly under the JIT.
 		constexpr TWord g_trapFillEnd = 0x020000;
 		constexpr TWord g_fillInstr   = 0x00000C;	// RTS
+
+		bool envFlagEnabled(const char* const _name)
+		{
+			const auto* const value = std::getenv(_name);
+			return value != nullptr && std::strcmp(value, "0") != 0;
+		}
 
 	}
 
@@ -120,10 +130,13 @@ namespace md
 		// silicon, the optimizer's cold cost exceeds its measured steady-state gain.
 		config.enableOptimizer = false;
 #endif
-		config.getBlockConfig = [](const TWord)
+		config.getBlockConfig = [dspIndex = m_index](const TWord _pc)
 			-> std::optional<dsp56k::JitConfig>
 		{
 			synthLib::RealtimeInstrumentation::recordCurrentCallbackJitCompilation();
+			if(envFlagEnabled("GEARMULATOR_MDMM_JIT_PC_TRACE"))
+				std::fprintf(stderr, "[MD] DSP%u JIT pc=%06x\n",
+					dspIndex + 1, _pc);
 			return {};
 		};
 		m_dsp.getJit().setConfig(config);
