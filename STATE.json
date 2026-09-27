@@ -1,27 +1,42 @@
 {
-  "version": "STATE v17 - 2026-09-22 combo VST3 HOST-VERIFIED by Thor - gearmulator-md-mm mission CLOSED",
+  "version": "STATE v18 - 2026-09-26 A2A resync - MD/MM optimization reopened",
   "project": "gearmulator-md-mm-alpha12 (Elektron MD+MM fork)",
-  "status": "COMBO VST3 (integration/alpha14-pr97, built 07:54, 23.0 MB) tested by Thor in host: works, ~1% delta from the merge - accepted as the price of the mainline path ('a kicsi eredmény is becsülendő'). Full mission now closed end-to-end: probes PASS, A/B clean-machine measured, host-verified. Next: G1-Emu Windows MIDI work at F:/MIZU/G1-Emu (separate scope).",
-  "mission_summary": "99.9% CPU / ASIO silence -> ASIO 128 @44.1k clean on MD+MM (Thor, UMC ASIO), via: ESSI1 drain + heap fix + thread priority -> UC batch-16 (gated, capped) -> fast lane (cycles bit-identical) -> idle-skip composition (f681a918) -> PR #97 upstream (CI green, awaiting review) -> alpha.14 integration verified (+1.4% median, noise-level) -> combo VST3 host-verified.",
-  "pr_97_contents": [
-    "74c5a07f ESSI1 drain + heap alloc fix",
-    "75fe7e92 thread priority + profiler",
-    "31341d47 wall-clock probe",
-    "8f8855ff UC batch experiment + --ucdis",
-    "aafb9d41 batch hardening: dynamic gate + cap 32",
-    "aee17bb8 fast lane",
-    "5f9bcc71 idle-skip composition",
-    "e0e86d6a batch default 16"
-  ],
-  "next_session_first_question": "G1-Emu Windows MIDI (F:/MIZU/G1-Emu). Real fix per repo's own ROADMAP: JUCE virtual ports need JUCE_USE_WINDOWS_MIDI_SERVICES (Windows MIDI Services backend) OR graceful fallback to real/loopMIDI ports. Haditerv fiction check done - see memory/skill notes. PR #97 still awaiting joelanders review.",
-  "facts": {
-    "measurement_lesson": "Check idle CPU before wall-clock A/B (Nord G1 emu background contamination invalidated early rounds)",
-    "fork": "Tuth/gearmulator-md-mm, upstream joelanders/gearmulator-md-mm, gh auth Tuth",
-    "local_only": "STATE.json (A2A), submodule JITSTATS 8b164f42"
+  "ctx": {
+    "branch": "integration/alpha14-pr97",
+    "head_before_v18": "8780901a",
+    "a2a_protocol": "F:/MameVirus/A2A-protocol-universal.md",
+    "state_anchor_rule": "repo + STATE anchor is the memory; chat is disposable; evidence is judge; update STATE in-file and commit each round"
   },
+  "status": "Previous v17 said the MD/MM mission was closed and pointed next to G1-Emu; Thor reopened this repo for further MD/MM optimization. Working tree was clean at handoff. Current task: continue hardware-safe performance optimization for both Machinedrum and Monomachine from integration/alpha14-pr97, without losing A2A state again.",
+  "last_verified_host_result": "Combo VST3 alpha14+PR97 was host-verified by Thor: ASIO 128 @44.1k clean on MD+MM; PR #97 CI green upstream; +~1% integration delta accepted.",
+  "current_measurements": {
+    "build_tree": "F:/MIZU/gearmulator-md-mm-alpha12/temp/cmake_vs26",
+    "baseline_mm_probe": "mmAudioFirmwareTest.exe PASS with GEARMULATOR_MM_FIRMWARE_BIN=C:/Users/Thor/Documents/Gearmulator Preview/Monomachine/roms/elektron_sfx6-60_os1.32b.bin",
+    "baseline_md_probe": "mdAudioFirmwareTest.exe PASS with MD 1.63 and MM 1.32b randomized scheduler/resampler soak",
+    "mm_realtime_budget": "256 frames @44.1k = 5.805 ms; current windows average roughly 5.3-5.9 ms with occasional one-off max spikes",
+    "component_profile": "UC about 100-113 ms/window, DSP1 about 90-110 ms/window, DSP2 about 137-156 ms/window; DSP2 heavier steady-state work remains real",
+    "uc_hot_regions": "--ucdis top buckets include 0x243900, 0x248200, 0x200400, 0x1000400; 0x248214 loop polls DSP2 HI08 CVR at $600001 (not HREQ)"
+  },
+  "facts": {
+    "fork": "Tuth/gearmulator-md-mm, upstream joelanders/gearmulator-md-mm, gh auth Tuth",
+    "submodules_checked": "source/dsp56300=1378c430 clean, source/mc68k=ace95b3 clean",
+    "stale_note_fixed": "STATE v17 local_only mentioned JITSTATS 8b164f42, but active dsp56300 submodule is 1378c430; JITSTATS is parked in history, not active in this tree",
+    "a2a_correction": "v17 closed the mission; v18 explicitly reopens MD/MM optimization and makes this repo the active state anchor again"
+  },
+  "active_hypotheses": [
+    "Safe next UC optimization is a narrow Monomachine DSP2 CVR poll-loop accelerator: detect exact `move.b $600001,D0; blt` loop at 0x248214 after a real taken branch, perform each synthetic taken iteration by still reading CVR so existing callbacks and DSP catch-up run, account exactly 7 ColdFire cycles, and stop before any timer/UART/MIDI/panel/flash/host-pump/deferred-host-RX/IRQ boundary.",
+    "Do not implement a pure HREQ/time jump: $600001 is CVR, HREQ is ISR at $600002. Blindly adding UC cycles would skip m_readCvrCallback and break DSP catch-up/HREQ timing.",
+    "DSP max-slice spikes are likely cold/JIT/host-timing one-offs, not scheduler clamp or recompile storm; prior JITSTATS history refuted a recompile storm with scattered symmetric compile counts. A diagnostic build with MD_TRANSPORT_DIAGNOSTICS=ON can verify clamp hits if needed."
+  ],
+  "next_steps": [
+    "Implement the minimal CVR poll-loop accelerator behind strict Monomachine/signature/boundary guards.",
+    "Build mmAudioFirmwareTest/mdAudioFirmwareTest and run MM + MD firmware probes with the same pinned ROMs.",
+    "Compare pre/post mmAudioFirmwareTest PERF/PROFILE and ensure RMS/audio gates remain unchanged.",
+    "Commit code + STATE update with measured evidence."
+  ],
   "open_items": [
-    "PR #97: CI green, awaiting review; optionally post A/B combo evidence as comment",
-    "G1-Emu Windows MIDI: new scope at F:/MIZU/G1-Emu",
-    "UC JIT / measurement-infra PR: parked"
+    "PR #97 upstream still awaiting joelanders review",
+    "UC JIT / deeper measurement-infra PR remains parked unless the CVR-loop accelerator is insufficient",
+    "G1-Emu Windows MIDI is separate scope, not active in this repo while MD/MM optimization is reopened"
   ]
 }
