@@ -1,5 +1,5 @@
 {
-  "version": "STATE v20 - 2026-09-27 Musashi source note added",
+  "version": "STATE v21 - 2026-09-27 DSP scorecard + RT JIT attribution",
   "project": "gearmulator-md-mm-alpha12 (Elektron MD+MM fork)",
   "ctx": {
     "branch": "integration/alpha14-pr97",
@@ -8,7 +8,7 @@
     "a2a_protocol": "F:/MameVirus/A2A-protocol-universal.md",
     "state_anchor_rule": "repo + STATE anchor is the memory; chat is disposable; evidence is judge; update STATE in-file and commit each round"
   },
-  "status": "MD/MM optimization is reopened under A2A. v18 repaired the stale 'mission closed / G1 next' state. v19 lands one correctness fix found during the optimization pass: Hardware::m_ucBatchEnabled now actually mirrors isFirmwareMidiReady(), so UC batch enable/disable transitions can be toggled both ways instead of repeatedly setting only the Microcontroller flag.",
+  "status": "MD/MM optimization is reopened under A2A. v18 repaired the stale 'mission closed / G1 next' state. v19 lands one correctness fix found during the optimization pass: Hardware::m_ucBatchEnabled now actually mirrors isFirmwareMidiReady(), so UC batch enable/disable transitions can be toggled both ways instead of repeatedly setting only the Microcontroller flag. v21 adds opt-in RT JIT attribution to the MM firmware test and confirms the big steady-state render spikes correlate with synchronous live DSP JIT compilation, not transport clamp/backpressure.",
   "last_verified_host_result": "Combo VST3 alpha14+PR97 was host-verified by Thor: ASIO 128 @44.1k clean on MD+MM; PR #97 CI green upstream; +~1% integration delta accepted.",
   "current_measurements": {
     "build_tree": "F:/MIZU/gearmulator-md-mm-alpha12/temp/cmake_vs26",
@@ -16,7 +16,9 @@
     "mm_probe": "GEARMULATOR_MDMM_PROFILE=1 mmAudioFirmwareTest.exe => PASS; latest noisy window mean 5.849 ms / UC mean 115.9 ms, but audio/RMS oracle passed",
     "md_probe": "mdAudioFirmwareTest.exe => MD 1.63 randomized scheduler/resampler soak PASS; MM 1.32b randomized scheduler/resampler soak PASS",
     "mm_boot_probe": "mmBootFirmwareTest.exe => PASS, cold boot, edited kit and state-restored boot",
-    "uc_hot_regions": "--ucdis top buckets include 0x243900, 0x248200, 0x200400, 0x1000400; 0x248214 loop polls DSP2 HI08 CVR at $600001 (not HREQ)"
+    "uc_hot_regions": "--ucdis top buckets include 0x243900, 0x248200, 0x200400, 0x1000400; 0x248214 loop polls DSP2 HI08 CVR at $600001 (not HREQ)",
+    "transport_scorecard_diag": "MD_TRANSPORT_DIAGNOSTICS=ON build tree temp/cmake_vs26_diag; mdTransportScorecardFirmwareTest PASS. MD/MM scheduler paths report clamp=0, backpressure=0, unexpected=0; both machines reach targets, so transport clamp/backpressure is not the current spike source.",
+    "rtjit_profile": "GEARMULATOR_RT_INSTRUMENTATION=1 + GEARMULATOR_MDMM_PROFILE=1 mmAudioFirmwareTest PASS. 13 render windows: total live JIT compilations=403, jit windows=7, max block=26.0551 ms, corr(jit count, max block)=0.887, corr(jit count, avg block)=0.684. Worst windows: 26.055 ms/87 JIT, 22.941 ms/92 JIT, 15.513 ms/83 JIT."
   },
   "facts": {
     "fork": "Tuth/gearmulator-md-mm, upstream joelanders/gearmulator-md-mm, gh auth Tuth",
@@ -24,16 +26,18 @@
     "stale_note_fixed": "STATE v17 local_only mentioned JITSTATS 8b164f42, but active dsp56300 submodule is 1378c430; JITSTATS is parked in history, not active in this tree",
     "a2a_correction": "v18 explicitly reopened MD/MM optimization and made this repo the active state anchor again",
     "rejected_cvr_fast_path": "A safe MOVE.B $600001,D0 fast path that left BLT real was tested and reverted: it fired (~141k cvr-fast instr/window) but worsened UC wall time (~129 ms mean) because preventing batch from swallowing the branch cost more than the interpreter MOVE it saved. Do not revive without a full taken-iteration batch that preserves host-pump boundaries.",
-    "musashi_note_from_thor": "This repo contains the locally improved Musashi under F:/MIZU/gearmulator-md-mm-alpha12/source/mc68k/Musashi. If a standard Musashi tree needs substantial fixes, use this version as the first local reference; verify diffs and contracts before transplanting anything."
+    "musashi_note_from_thor": "This repo contains the locally improved Musashi under F:/MIZU/gearmulator-md-mm-alpha12/source/mc68k/Musashi. If a standard Musashi tree needs substantial fixes, use this version as the first local reference; verify diffs and contracts before transplanting anything.",
+    "rtjit_diagnostic_harness": "source/elektron/md/mdLibTest/mmAudioFirmwareTest.cpp now creates a local RealtimeInstrumentation CallbackScope around each 256-frame render block only when GEARMULATOR_RT_INSTRUMENTATION=1. Env-off behavior remains the old direct hardware.processAudio path."
   },
   "active_hypotheses": [
     "Pure time-skip for the DSP2 CVR poll loop is unsafe: CVR reads must still invoke m_readCvrCallback so DSP catch-up and host-command acceptance timing remain real.",
     "A full CVR loop accelerator is only viable if it batches taken iterations while still performing CVR reads and checking host-pump/deferred-RX/IRQ/timer/MIDI boundaries between MOVE and BLT. The single-MOVE fast path is rejected by measurement.",
-    "DSP2 heavier steady-state wall time appears real work, not scheduler clamp or JIT recompile storm; deeper DSP optimization needs a separate diagnostic/profiling pass."
+    "DSP2 heavier steady-state wall time is real work, but the large per-block spikes are now attributed to synchronous live DSP JIT compilation inside render callbacks; steady non-JIT windows still hover near the 5.805 ms budget and need separate DSP2 throughput work."
   ],
   "next_steps": [
     "If continuing UC work, prototype a full taken-iteration CVR loop batch with explicit post-CVR host boundary checks, not the rejected single-MOVE path.",
-    "If continuing DSP work, build MD_TRANSPORT_DIAGNOSTICS=ON scorecard or revive parked JITSTATS only for measurement, then target DSP2 steady-state hotspots with proof.",
+    "If continuing DSP work, prototype a deterministic JIT prewarm/deferred-compile strategy so newly reached DSP blocks compile before realtime render windows or off the critical callback; preserve firmware timing and verify with RTJIT counts.",
+    "After JIT spikes are removed, target steady DSP2 throughput because dsp2 remains the largest total wall-time component (~149.55 ms/window vs uc ~113.18 ms and dsp1 ~98.34 ms in v21 profile).",
     "Run host/VST3 smoke with Thor after any default-on perf change; headless probes alone are not host acceptance."
   ],
   "open_items": [

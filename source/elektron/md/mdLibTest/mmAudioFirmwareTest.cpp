@@ -1,6 +1,7 @@
 #include "mdLib/mdhardware.h"
 #include "mdLib/mdromloader.h"
 #include "baseLib/filesystem.h"
+#include "synthLib/realtimeInstrumentation.h"
 
 // Musashi disassembler for the --ucdis UC hot-region dump (ColdFire decoded
 // as 68020; the dasm switch has no ColdFire entry).
@@ -69,6 +70,8 @@ namespace
 		// steady-state render path only (boot is not representative).
 		double blockMsMax = 0, blockMsSum = 0;
 		unsigned blockMsCount = 0;
+		synthLib::RealtimeInstrumentation rtInstrumentation;
+		const bool rtEnabled = rtInstrumentation.isEnabled();
 
 		// Reset the component profile HERE so the printed attribution covers
 		// exactly this render window (64 x 256 frames), not the settle/advance
@@ -78,7 +81,15 @@ namespace
 		for(unsigned block = 0; block < blocks; ++block)
 		{
 			const auto blockStart = std::chrono::steady_clock::now();
-			hardware.processAudio(outputs, 256, 0);
+			if(rtEnabled)
+			{
+				synthLib::RealtimeInstrumentation::CallbackScope callback(
+					rtInstrumentation, 256, md::g_samplerate);
+				callback.setHostState(true, false);
+				hardware.processAudio(outputs, 256, 0);
+			}
+			else
+				hardware.processAudio(outputs, 256, 0);
 			const auto blockEnd = std::chrono::steady_clock::now();
 			const std::chrono::duration<double, std::milli> blockMs = blockEnd - blockStart;
 			if(blockMs.count() > blockMsMax) blockMsMax = blockMs.count();
@@ -125,6 +136,36 @@ namespace
 			std::cout << "PERF 256-frame block: avg " << blockMsSum / blockMsCount
 				<< " ms, max " << blockMsMax << " ms (realtime budget 5.805 ms)"
 				<< (blockMsMax < 5.805 ? " => REALTIME OK" : " => REALTIME MISS") << '\n';
+		if(rtEnabled)
+		{
+			const auto s = rtInstrumentation.snapshot();
+			std::cout << "RTJIT callbacks " << s.outerHostCallbackCount
+				<< " jit " << s.jitCompilationCount
+				<< " live " << s.liveJitCompilationCount
+				<< " deferred " << s.deferredCandidateJitCompilationCount
+				<< " callbacks-with-jit " << s.callbacksWithJitCompilation
+				<< " overruns " << s.outerHostCallbackOverrunCount
+				<< " max-ms " << (s.outerHostCallbackMaxNanoseconds / 1000000.0)
+				<< " max-overrun-ms "
+				<< (s.outerHostCallbackMaxOverrunNanoseconds / 1000000.0) << '\n';
+			synthLib::RealtimeSlowCallback callback;
+			unsigned printed = 0;
+			while(rtInstrumentation.popSlowCallback(callback) && printed < 8)
+			{
+				if(callback.liveJitCompilations || callback.deferredJitCompilations
+					|| (callback.budgetNanoseconds
+						&& callback.durationNanoseconds >= callback.budgetNanoseconds))
+				{
+					std::cout << "RTCALL idx " << callback.index
+						<< " dur-ms " << (callback.durationNanoseconds / 1000000.0)
+						<< " budget-ms " << (callback.budgetNanoseconds / 1000000.0)
+						<< " live-jit " << callback.liveJitCompilations
+						<< " deferred-jit " << callback.deferredJitCompilations
+						<< '\n';
+					++printed;
+				}
+			}
+		}
 
 		// Component wall-time attribution for the same window (requires
 		// GEARMULATOR_MDMM_PROFILE=1 at process start; otherwise all zero).
