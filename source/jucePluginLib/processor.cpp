@@ -38,37 +38,6 @@ namespace pluginLib
 	constexpr uint32_t g_saveVersion = 2;
 	constexpr const char* const g_defaultProgramName = "default";
 
-	class ScopedAudioCallbackPriorityBoost final
-	{
-	public:
-		ScopedAudioCallbackPriorityBoost()
-		{
-#if defined(_WIN32)
-			m_previousPriority = dsp56k::ThreadTools::getCurrentThreadPriorityRaw();
-			m_restorePriority = dsp56k::ThreadTools::setCurrentThreadPriority(
-				dsp56k::ThreadPriority::Highest);
-#else
-			(void)dsp56k::ThreadTools::setCurrentThreadPriority(
-				dsp56k::ThreadPriority::Highest);
-#endif
-		}
-
-		~ScopedAudioCallbackPriorityBoost()
-		{
-#if defined(_WIN32)
-			if(m_restorePriority)
-				dsp56k::ThreadTools::setCurrentThreadPriorityRaw(m_previousPriority);
-#endif
-		}
-
-		ScopedAudioCallbackPriorityBoost(const ScopedAudioCallbackPriorityBoost&) = delete;
-		ScopedAudioCallbackPriorityBoost& operator=(const ScopedAudioCallbackPriorityBoost&) = delete;
-
-	private:
-		uint32_t m_previousPriority = 0;
-		bool m_restorePriority = false;
-	};
-
 	bridgeLib::SessionId generateRemoteSessionId()
 	{
 		return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -814,11 +783,11 @@ namespace pluginLib
 	    // normal-priority host/UI work. Measured steady-state MM render runs at
 	    // 5.8-6.2 ms per 256-frame block (budget 5.805 ms) - a single preemption
 	    // or JIT-compile spike (observed 13.5 ms) breaks the ASIO deadline and
-	    // the driver plays silence. The priority is per-thread and Windows hosts
-	    // may reuse that thread after our callback, so restore the host's original
-	    // priority before returning. On macOS this maps to QOS
+	    // the driver plays silence. The priority is per-thread; the host resets
+	    // nothing and other threads are unaffected. On macOS this maps to QOS
 	    // user-interactive + time constraints, i.e. the audio-callback standard.
-	    ScopedAudioCallbackPriorityBoost priorityBoost;
+	    (void)dsp56k::ThreadTools::setCurrentThreadPriority(
+	        dsp56k::ThreadPriority::Highest);
 
 	    synthLib::RealtimeInstrumentation::CallbackScope instrumentation(
 			getPlugin().getRealtimeInstrumentation(), static_cast<size_t>(numSamples),

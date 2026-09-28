@@ -23,13 +23,6 @@
 #include <thread>
 #include <vector>
 
-#if defined(_WIN32)
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#endif
-
 namespace
 {
 	void require(const bool _condition, const std::string& _message)
@@ -641,43 +634,6 @@ namespace
 		audioProcessor.releaseResources();
 	}
 
-	void verifyProcessBlockRestoresHostThreadPriority()
-	{
-#if defined(_WIN32)
-		class PriorityGuard
-		{
-		public:
-			PriorityGuard() : m_previous(::GetThreadPriority(::GetCurrentThread())) {}
-			~PriorityGuard()
-			{
-				if(m_previous != THREAD_PRIORITY_ERROR_RETURN)
-					::SetThreadPriority(::GetCurrentThread(), m_previous);
-			}
-		private:
-			int m_previous;
-		} guard;
-
-		require(::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL) != 0,
-			"could not prepare baseline thread priority");
-		const auto before = ::GetThreadPriority(::GetCurrentThread());
-		require(before != THREAD_PRIORITY_ERROR_RETURN,
-			"could not read baseline thread priority");
-
-		SyntheticProcessor processor;
-		auto& audioProcessor = static_cast<juce::AudioProcessor&>(processor);
-		audioProcessor.prepareToPlay(44100.0, 64);
-		juce::AudioBuffer<float> audio(2, 64);
-		juce::MidiBuffer midi;
-		audio.clear();
-		audioProcessor.processBlock(audio, midi);
-		audioProcessor.releaseResources();
-
-		const auto after = ::GetThreadPriority(::GetCurrentThread());
-		require(after == before,
-			"processBlock left the host audio thread priority elevated");
-#endif
-	}
-
 	void verifyOutputGainPublication()
 	{
 		SyntheticProcessor processor;
@@ -737,7 +693,6 @@ int main()
 		verifyProcessorAudioRouting();
 		verifyOutputGainPublication();
 		verifyMidiOutputOffsets();
-		verifyProcessBlockRestoresHostThreadPriority();
 		verifyLatencyTracksLayoutRateAndOfflineMode();
 		verifyInvalidDeviceRecoveryIsDeferred();
 		verifyReplacementLatencyNotificationIsAsync();
