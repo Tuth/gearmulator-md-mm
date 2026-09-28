@@ -290,6 +290,101 @@ namespace
 		tap(hardware, md::PanelControl::Exit);
 	}
 
+	// Repeated note starts (--note-starts [trials per track]). Diagnostic for
+	// dropped note starts: every track plays GND-SIN, and each trial releases the
+	// previous note, waits a pseudo-random gap (so note-ons land at varying phases
+	// of the DSP block cycle), checks for silence, sends a note-on and looks for
+	// the note in the following window. The sequence is deterministic (fixed seed)
+	// so two builds or settings receive exactly the same MIDI at the same times.
+	// Prints per-track started/total and the failing trial numbers; exit code 0
+	// unless the machine misbehaves otherwise (silence check, rejected MIDI).
+	void testNoteStarts(md::Hardware& hardware, const unsigned _trialsTracks456)
+	{
+		std::array<std::array<float, 256>, 2> samples{};
+		synthLib::TAudioOutputs outputs{};
+		outputs[0] = samples[0].data();
+		outputs[1] = samples[1].data();
+		auto blockRms = [&]()
+		{
+			hardware.processAudio(outputs, 256, 0);
+			double sum = 0;
+			for(const auto& channel : samples)
+				for(const float v : channel)
+					sum += double(v) * v;
+			return std::sqrt(sum / 512.0);
+		};
+		auto midi = [&](const uint8_t _a, const uint8_t _b, const uint8_t _c, const char* _what)
+		{
+			require(hardware.sendMidi(synthLib::SMidiEvent(synthLib::MidiEventSource::Host, _a, _b, _c)), _what);
+		};
+
+		for(uint8_t track = 0; track < 6; ++track)
+		{
+			synthLib::SMidiEvent assign(synthLib::MidiEventSource::Host);
+			assign.sysex = {0xf0, 0, 0x20, 0x3c, 3, 0, 0x5b, track, 1, 1, 0xf7};	// GND-SIN, init pages
+			require(hardware.sendMidi(assign), "GND SIN assignment rejected");
+			advance(hardware, md::g_samplerate);
+		}
+
+		uint32_t rng = 0x9e3779b9u;
+		auto next = [&rng]() { rng = rng * 1664525u + 1013904223u; return rng >> 8; };
+
+		constexpr double onThreshold = 1e-3;	// GND-SIN tracks measure 0.015..0.14 RMS
+		constexpr double silenceThreshold = 1e-5;
+		constexpr unsigned windowBlocks = 32;	// 186 ms after the note-on
+		unsigned totalDrops456 = 0, totalTrials456 = 0, totalDrops123 = 0, totalTrials123 = 0;
+
+		for(uint8_t track = 0; track < 6; ++track)
+		{
+			const unsigned trials = track >= 3 ? _trialsTracks456 : std::max(1u, _trialsTracks456 / 3);
+			unsigned started = 0;
+			std::vector<unsigned> dropped;
+			for(unsigned trial = 0; trial < trials; ++trial)
+			{
+				midi(static_cast<uint8_t>(0x80 | track), 60, 0, "note-off rejected");
+				// Release, then a gap of 0.25 s plus 0..4095 frames.
+				advance(hardware, md::g_samplerate / 4 + (next() & 4095));
+				// Wait (bounded) for the previous note's release to finish.
+				double before = blockRms();
+				for(unsigned wait = 0; wait < 344 && before >= silenceThreshold; ++wait)	// <= 2 s
+					before = blockRms();
+				if(before >= silenceThreshold)
+				{
+					std::cout << "NOTESTARTS track " << unsigned(track + 1) << " trial " << trial
+						<< " not silent before note-on, RMS " << before << '\n';
+					require(false, "track not silent before note-on");
+				}
+				midi(static_cast<uint8_t>(0x90 | track), 60, 100, "note-on rejected");
+				double peak = 0;
+				for(unsigned b = 0; b < windowBlocks; ++b)
+					peak = std::max(peak, blockRms());
+				if(peak > onThreshold)
+					++started;
+				else
+					dropped.push_back(trial);
+				if(((trial + 1) % 25) == 0)
+					std::cout << "NOTESTARTS progress track " << unsigned(track + 1) << " trial " << trial + 1
+						<< '/' << trials << std::endl;
+			}
+			midi(static_cast<uint8_t>(0x80 | track), 60, 0, "note-off rejected");
+			advance(hardware, md::g_samplerate / 2);
+
+			std::cout << "NOTESTARTS track " << unsigned(track + 1) << " started " << started << '/' << trials
+				<< " dropped " << dropped.size();
+			if(!dropped.empty())
+			{
+				std::cout << " at trials";
+				for(const auto t : dropped)
+					std::cout << ' ' << t;
+			}
+			std::cout << std::endl;
+			(track >= 3 ? totalDrops456 : totalDrops123) += static_cast<unsigned>(dropped.size());
+			(track >= 3 ? totalTrials456 : totalTrials123) += trials;
+		}
+		std::cout << "NOTESTARTS tracks 4-6 dropped " << totalDrops456 << '/' << totalTrials456
+			<< ", tracks 1-3 dropped " << totalDrops123 << '/' << totalTrials123 << '\n';
+	}
+
 	void testAudioInput(md::Hardware& hardware)
 	{
 		const auto settle = [&](uint32_t frames) {
@@ -358,7 +453,10 @@ int main(int argc, char** argv)
 	const bool sine = sineMidi || (argc == 2 && std::string_view(argv[1]) == "--sine");
 	const bool ensemble = argc == 2 && std::string_view(argv[1]) == "--digipro-ensemble";
 	const bool digipro = ensemble || (argc == 2 && std::string_view(argv[1]) == "--digipro");
-	if(argc != 1 && !sine && !digipro && !input && !ucdis)
+	const bool noteStarts = (argc == 2 || argc == 3) && std::string_view(argv[1]) == "--note-starts";
+	const unsigned noteStartTrials = noteStarts && argc == 3
+		? static_cast<unsigned>(std::strtoul(argv[2], nullptr, 10)) : 120u;
+	if(argc != 1 && !sine && !digipro && !input && !ucdis && !noteStarts)
 		return 2;
 	const auto* path = std::getenv("GEARMULATOR_MM_FIRMWARE_BIN");
 	if(!path || !*path)
@@ -459,9 +557,15 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
-		if(sine || digipro || input)
+		if(sine || digipro || input || noteStarts)
 			loadEmptyKit(hardware);
 		if(input) { testAudioInput(hardware); return 0; }
+		if(noteStarts)
+		{
+			testNoteStarts(hardware, noteStartTrials);
+			std::cout << "mmAudioFirmwareTest: NOTESTARTS done\n";
+			return 0;
+		}
 		if(sineMidi)
 		{
 			// Manufacturer manual, Appendix C: machine 01 is GND-SIN, and
