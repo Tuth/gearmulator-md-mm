@@ -598,11 +598,17 @@ namespace md
 	void Microcontroller::advanceIdleSelfBranch(const uint32_t _instructions)
 	{
 		// The qualified branch changes no registers or memory. Its previous
-		// PC, instruction register and one-instruction cycle accounting remain
-		// exactly the values left by the preceding real execution.
+		// PC and instruction register remain exactly the values left by the
+		// preceding real execution. Normalize Musashi's internal cycle budget
+		// to the single-step signature the interpreter would leave after the
+		// last skipped BRA.B; batch execution can reach the same architectural
+		// fixed point with different bookkeeping.
 		const uint32_t cycles = _instructions * 2;
 		m_cycles += cycles;
 		advanceAfterCpu(cycles);
+		auto& cpu = *getCpuState();
+		cpu.m68ki_initial_cycles = 1;
+		cpu.m68ki_remaining_cycles = -1;
 	}
 
 	uint32_t Microcontroller::readIrqUserVector(const uint8_t _level)

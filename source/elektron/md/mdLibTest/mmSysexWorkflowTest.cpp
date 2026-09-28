@@ -244,7 +244,11 @@ namespace
 
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+	std::setvbuf(stdout, nullptr, _IONBF, 0);
+#else
 	std::setvbuf(stdout, nullptr, _IOLBF, 0);
+#endif
 	if(argc == 2 && std::string(argv[1]) == "--audio-oracle")
 	{
 		try { oracleSelfTest(); return 0; }
