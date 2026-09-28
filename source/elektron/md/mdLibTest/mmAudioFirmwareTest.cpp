@@ -382,7 +382,8 @@ namespace
 			(track >= 3 ? totalTrials456 : totalTrials123) += trials;
 		}
 		std::cout << "NOTESTARTS tracks 4-6 dropped " << totalDrops456 << '/' << totalTrials456
-			<< ", tracks 1-3 dropped " << totalDrops123 << '/' << totalTrials123 << '\n';
+			<< ", tracks 1-3 dropped " << totalDrops123 << '/' << totalTrials123
+			<< ", sync edge queue overflows " << hardware.getMmSyncEdgeOverflows() << '\n';
 	}
 
 	void testAudioInput(md::Hardware& hardware)

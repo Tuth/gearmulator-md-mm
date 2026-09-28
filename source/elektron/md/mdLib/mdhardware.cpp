@@ -574,7 +574,16 @@ namespace md
 				}
 				if(isMonomachine() && m_mmTimedSync)
 				{
-					m_mmSyncEdges.emplace_back(mmProducerCycleAtMixerNow(), level);
+					if(m_mmSyncEdges.full())
+					{
+						// Not reached in any measured run. Instead of allocating, make the
+						// oldest edge visible now (the pre-timed-sync behaviour for that one
+						// edge) and count it.
+						m_mmSyncLevel = m_mmSyncEdges.front().level;
+						m_mmSyncEdges.pop();
+						++m_mmSyncEdgeOverflows;
+					}
+					m_mmSyncEdges.push(mmProducerCycleAtMixerNow(), level);
 					return;
 				}
 				m_dspProducer.getPeriph().getPortC().hostWrite(level);
@@ -594,11 +603,11 @@ namespace md
 					m_dspProducer.getPeriph().getPortC().setHostInputSource([this]() -> dsp56k::TWord
 					{
 						const auto now = m_dspProducer.dsp().getCycles();
-						size_t n = 0;
-						while(n < m_mmSyncEdges.size() && m_mmSyncEdges[n].first <= now)
-							m_mmSyncLevel = m_mmSyncEdges[n++].second;
-						if(n)
-							m_mmSyncEdges.erase(m_mmSyncEdges.begin(), m_mmSyncEdges.begin() + static_cast<ptrdiff_t>(n));
+						while(!m_mmSyncEdges.empty() && m_mmSyncEdges.front().dsp2Cycle <= now)
+						{
+							m_mmSyncLevel = m_mmSyncEdges.front().level;
+							m_mmSyncEdges.pop();
+						}
 						return m_mmSyncLevel;
 					});
 				}

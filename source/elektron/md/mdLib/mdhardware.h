@@ -170,6 +170,9 @@ namespace md
 		Dsp& getDspProducer() { return m_dspProducer; }	// DSP2, index 1
 		Dsp& getDspMixer()    { return m_dspMixer; }	// DSP1, index 0 (main/output)
 		// ESSI0 link frames waiting for the given DSP's receiver (0 = DSP1, 1 = DSP2).
+		// Monomachine timed block sync: edges that had to become visible early
+		// because the fixed edge queue was full (expected 0).
+		uint64_t getMmSyncEdgeOverflows() const { return m_mmSyncEdgeOverflows; }
 		LinkInputRing& linkInputs(const uint32_t _dspIndex)
 		{
 			return (_dspIndex == 0 ? m_dspMixer : m_dspProducer).linkInputs();
@@ -447,7 +450,33 @@ namespace md
 		// Monomachine block sync: DSP1's Port C bit 1 edges reach DSP2 at the DSP2 cycle matching DSP1's write,
 		// not at whatever cycle DSP2 has reached when the scheduler runs that write.
 		bool m_mmTimedSync = false;
-		std::vector<std::pair<uint64_t, dsp56k::TWord>> m_mmSyncEdges;	// (DSP2 cycle, level), oldest first
+		// Edges waiting for DSP2's clock, oldest first. Fixed capacity because the
+		// queue is used on the emulation (audio) thread and must not allocate.
+		// Measured depth: one edge in steady state, at most 11 during boot bursts.
+		class MmSyncEdgeQueue
+		{
+		public:
+			struct Edge { uint64_t dsp2Cycle; dsp56k::TWord level; };
+			static constexpr size_t Capacity = 64;
+
+			bool empty() const { return m_count == 0; }
+			bool full() const { return m_count == Capacity; }
+			const Edge& front() const { return m_edges[m_head]; }
+			void pop() { m_head = (m_head + 1) & (Capacity - 1); --m_count; }
+			void push(const uint64_t _dsp2Cycle, const dsp56k::TWord _level)
+			{
+				m_edges[(m_head + m_count) & (Capacity - 1)] = {_dsp2Cycle, _level};
+				++m_count;
+			}
+
+		private:
+			static_assert((Capacity & (Capacity - 1)) == 0, "capacity must be a power of two");
+			std::array<Edge, Capacity> m_edges{};
+			size_t m_head = 0;
+			size_t m_count = 0;
+		};
+		MmSyncEdgeQueue m_mmSyncEdges;
+		uint64_t m_mmSyncEdgeOverflows = 0;	// edges made visible early because the queue was full
 		dsp56k::TWord m_mmSyncLevel = 0;
 		uint64_t mmProducerCycleAtMixerNow();
 		bool     m_schedDspOriginLatched[2] = { false, false };	// [0]=mixer/DSP1, [1]=producer/DSP2
