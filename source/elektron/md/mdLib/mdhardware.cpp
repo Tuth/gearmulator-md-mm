@@ -164,28 +164,23 @@ namespace md
 		// RX - no deadlock, provided the two ESSI0 clock rates match (they do: same divider config
 		// on both DSPs). Codec ESSI1 RX is callback-fed and remains non-blocking:
 		// out-of-block reads receive silence.
-		const auto txToRx = [](const dsp56k::Audio::TxFrame& _tx, dsp56k::Audio::RxFrame& _rx)
-		{
-			_rx.resize(_tx.size());
-			for(size_t i = 0; i < _tx.size(); ++i)
-				_rx[i] = dsp56k::Audio::RxSlot{_tx[i][0]};	// the MD link carries one word per slot
-		};
-
 		// Both DSPs run on one scheduler thread, so a blocking ring push/pop
 		// (which parks the calling thread until the peer thread drains/fills) would deadlock. Under
 		// the scheduler the inter-DSP ESSI0 ring becomes non-blocking: drop-on-full for the producer
 		// push, silence-on-empty for the consumer pop. Ordering/level correctness comes from the
 		// scheduler advancing the peer before delivery and, when it lands, the hardware-true
 		// skip-on-empty link RX.
-		const auto pushToInput = [txToRx, this](dsp56k::Essi& _consumer,
+		// The frames travel through the consumer's LinkInputRing (see mdlinkring.h),
+		// which carries the link's one word per slot. _values is the producer ESSI's
+		// own TX frame; the consumer catch-up below runs only the other DSP, so the
+		// frame is unchanged when it is enqueued after that catch-up.
+		const auto pushToInput = [this](dsp56k::Essi& _consumer,
 			const uint32_t _selfDsp)
 		{
-			return [txToRx, this, &_consumer, _selfDsp](uint64_t& _frameIndex, const dsp56k::Audio::TxFrame& _values)
+			return [this, &_consumer, _selfDsp](uint64_t& _frameIndex, const dsp56k::Audio::TxFrame& _values)
 			{
 				MD_TRANSPORT_RECORD(++m_transportScorecard.link[_selfDsp].transmitFrames;);
-				dsp56k::Audio::RxFrame rx;
-				txToRx(_values, rx);
-				auto& ring = _consumer.getAudioInputs();
+				auto& ring = linkInputs(1u - _selfDsp);
 				const bool mdProducerToMixer = _selfDsp == 1 && !isMonomachine();
 				const bool rendezvousActiveBefore = mdProducerToMixer
 					&& m_mdOnDemandRendezvousActive;
@@ -239,7 +234,7 @@ namespace md
 								.mdRendezvousRingFullDrops;);
 						else
 						{
-							ring.push_back(std::move(rx));
+							ring.push_back(_values);
 							MD_TRANSPORT_RECORD(auto& score = m_transportScorecard.link[_selfDsp];
 								++score.acceptedFrames;
 								score.currentRingDepth = ring.size();
@@ -336,7 +331,7 @@ namespace md
 					}
 					if(!ring.full())
 					{
-						ring.push_back(std::move(rx));
+						ring.push_back(_values);
 						MD_TRANSPORT_RECORD(auto& score = m_transportScorecard.link[_selfDsp];
 							++score.acceptedFrames;
 							score.currentRingDepth = ring.size();
@@ -354,7 +349,7 @@ namespace md
 			{
 				MD_TRANSPORT_RECORD(++m_transportScorecard.link[1u - _selfDsp]
 					.receiveCallbacks;);
-				auto& ring = _self.getAudioInputs();
+				auto& ring = linkInputs(_selfDsp);
 					// Stall recovery: under scheduler link catch-up the consumer is
 					// advanced to the producer's time before every enqueue, so this ring can only be
 					// DEEP if the consumer's RX stopped clocking for a while as the wire kept running
@@ -402,7 +397,7 @@ namespace md
 					}
 					else
 					{
-						_frame = ring.pop_front();
+						ring.pop_front(_frame);
 						MD_TRANSPORT_RECORD(auto& score = m_transportScorecard.link[1u - _selfDsp];
 							++score.poppedFrames;
 							score.currentRingDepth = ring.size(););
@@ -567,7 +562,7 @@ namespace md
 						// Anything queued before this new request belongs to the
 						// completed/idle wire interval and cannot precede DSP2's
 						// response in the new DMA4 window.
-						auto& ring = m_dspMixer.getPeriph().getEssi0().getAudioInputs();
+						auto& ring = linkInputs(0);
 						MD_TRANSPORT_RECORD(m_transportScorecard.link[1]
 							.mmStrobePurgedFrames += ring.size();
 							m_transportScorecard.link[1].currentRingDepth = 0;);
@@ -582,9 +577,9 @@ namespace md
 		}
 
 		MD_TRANSPORT_RECORD(m_transportScorecard.link[0].currentRingDepth =
-			m_dspProducer.getPeriph().getEssi0().getAudioInputs().size();
+			linkInputs(1).size();
 		m_transportScorecard.link[1].currentRingDepth =
-			m_dspMixer.getPeriph().getEssi0().getAudioInputs().size();
+			linkInputs(0).size();
 		for(auto& score : m_transportScorecard.link)
 		{
 			score.initialRingDepth = score.currentRingDepth;
@@ -861,9 +856,9 @@ namespace md
 		// Sample the actual queues, independently of the recording counters, so
 		// queue-conservation checks can detect an unaccounted mutation.
 		result.link[0].currentRingDepth =
-			m_dspProducer.getPeriph().getEssi0().getAudioInputs().size();
+			linkInputs(1).size();
 		result.link[1].currentRingDepth =
-			m_dspMixer.getPeriph().getEssi0().getAudioInputs().size();
+			linkInputs(0).size();
 		result.mdRendezvousActive = m_mdOnDemandRendezvousActive;
 		result.mdPortCEdgePending = m_mdProducerPortCPending;
 		result.mdFlushEpoch = m_mdLinkFlushEpoch;

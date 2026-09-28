@@ -169,6 +169,11 @@ namespace md
 		// Role accessors used by the HI08 bridge and scheduler.
 		Dsp& getDspProducer() { return m_dspProducer; }	// DSP2, index 1
 		Dsp& getDspMixer()    { return m_dspMixer; }	// DSP1, index 0 (main/output)
+		// ESSI0 link frames waiting for the given DSP's receiver (0 = DSP1, 1 = DSP2).
+		LinkInputRing& linkInputs(const uint32_t _dspIndex)
+		{
+			return (_dspIndex == 0 ? m_dspMixer : m_dspProducer).linkInputs();
+		}
 
 		void processUC();
 		void processAudio(uint32_t _frames, uint32_t _latency);
