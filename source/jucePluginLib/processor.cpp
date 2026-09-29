@@ -3,6 +3,16 @@
 #include <algorithm>
 #include <chrono>
 
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#ifdef MessageBox
+#undef MessageBox
+#endif
+#endif
+
 #include "dummydevice.h"
 #include "midiLearnManager.h"
 #include "pluginVersion.h"
@@ -37,6 +47,60 @@ namespace pluginLib
 	constexpr char g_saveMagic[] = "DSP56300";
 	constexpr uint32_t g_saveVersion = 2;
 	constexpr const char* const g_defaultProgramName = "default";
+
+#if defined(_WIN32)
+	bool setCurrentThreadWindowsAudioPriority()
+	{
+		struct AvrtApi
+		{
+			using SetCharacteristicsFn = HANDLE (WINAPI*)(LPCWSTR, LPDWORD);
+			using SetPriorityFn = BOOL (WINAPI*)(HANDLE, int);
+
+			HMODULE module = nullptr;
+			SetCharacteristicsFn setCharacteristics = nullptr;
+			SetPriorityFn setPriority = nullptr;
+		};
+
+		static const auto api = []
+		{
+			AvrtApi result;
+			result.module = ::LoadLibraryW(L"avrt.dll");
+			if(!result.module)
+				return result;
+			result.setCharacteristics = reinterpret_cast<AvrtApi::SetCharacteristicsFn>(
+				reinterpret_cast<void*>(::GetProcAddress(result.module,
+					"AvSetMmThreadCharacteristicsW")));
+			result.setPriority = reinterpret_cast<AvrtApi::SetPriorityFn>(
+				reinterpret_cast<void*>(::GetProcAddress(result.module,
+					"AvSetMmThreadPriority")));
+			return result;
+		}();
+
+		thread_local bool attemptedMmcss = false;
+		thread_local HANDLE mmcssHandle = nullptr;
+
+		if(!attemptedMmcss)
+		{
+			attemptedMmcss = true;
+			if(api.setCharacteristics && api.setPriority)
+			{
+				DWORD taskIndex = 0;
+				mmcssHandle = api.setCharacteristics(L"Pro Audio", &taskIndex);
+				if(mmcssHandle)
+				{
+					constexpr int avrtPriorityHigh = 1;
+					(void)api.setPriority(mmcssHandle, avrtPriorityHigh);
+				}
+			}
+		}
+
+		if(mmcssHandle)
+			return true;
+
+		return dsp56k::ThreadTools::setCurrentThreadPriority(
+			dsp56k::ThreadPriority::High);
+	}
+#endif
 
 	bridgeLib::SessionId generateRemoteSessionId()
 	{
@@ -778,16 +842,17 @@ namespace pluginLib
 	    juce::ScopedNoDenormals noDenormals;
 	    const int numSamples = buffer.getNumSamples();
 
-	    // Windows realtime optimization: raise this thread's priority for the
-	    // duration of the callback so the emulation slices are not preempted by
-	    // normal-priority host/UI work. Measured steady-state MM render runs at
-	    // 5.8-6.2 ms per 256-frame block (budget 5.805 ms) - a single preemption
-	    // or JIT-compile spike (observed 13.5 ms) breaks the ASIO deadline and
-	    // the driver plays silence. The priority is per-thread; the host resets
-	    // nothing and other threads are unaffected. On macOS this maps to QOS
-	    // user-interactive + time constraints, i.e. the audio-callback standard.
+	    // Keep the emulation callback in the OS audio scheduling class without
+	    // forcing the Windows host thread into THREAD_PRIORITY_TIME_CRITICAL.
+	    // MMCSS Pro Audio is the Windows audio-thread contract used by JUCE's
+	    // own WASAPI backend and cooperates better with foreground/background
+	    // scheduling; on older systems fall back to above-normal, not time-critical.
+#if defined(_WIN32)
+	    (void)setCurrentThreadWindowsAudioPriority();
+#else
 	    (void)dsp56k::ThreadTools::setCurrentThreadPriority(
 	        dsp56k::ThreadPriority::Highest);
+#endif
 
 	    synthLib::RealtimeInstrumentation::CallbackScope instrumentation(
 			getPlugin().getRealtimeInstrumentation(), static_cast<size_t>(numSamples),
