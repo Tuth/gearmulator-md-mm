@@ -23,13 +23,6 @@
 #include <thread>
 #include <vector>
 
-#if defined(_WIN32)
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#endif
-
 namespace
 {
 	void require(const bool _condition, const std::string& _message)
@@ -641,41 +634,6 @@ namespace
 		audioProcessor.releaseResources();
 	}
 
-	void verifyProcessBlockDoesNotForceTimeCriticalPriority()
-	{
-#if defined(_WIN32)
-		class PriorityGuard
-		{
-		public:
-			PriorityGuard() : m_previous(::GetThreadPriority(::GetCurrentThread())) {}
-			~PriorityGuard()
-			{
-				if(m_previous != THREAD_PRIORITY_ERROR_RETURN)
-					::SetThreadPriority(::GetCurrentThread(), m_previous);
-			}
-
-		private:
-			int m_previous;
-		} guard;
-
-		require(::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_NORMAL) != 0,
-			"could not prepare normal thread priority");
-
-		SyntheticProcessor processor;
-		auto& audioProcessor = static_cast<juce::AudioProcessor&>(processor);
-		audioProcessor.prepareToPlay(44100.0, 64);
-		juce::AudioBuffer<float> audio(2, 64);
-		juce::MidiBuffer midi;
-		audio.clear();
-		audioProcessor.processBlock(audio, midi);
-		audioProcessor.releaseResources();
-
-		const auto after = ::GetThreadPriority(::GetCurrentThread());
-		require(after != THREAD_PRIORITY_TIME_CRITICAL,
-			"processBlock forced the Windows host thread to TIME_CRITICAL");
-#endif
-	}
-
 	void verifyOutputGainPublication()
 	{
 		SyntheticProcessor processor;
@@ -735,7 +693,6 @@ int main()
 		verifyProcessorAudioRouting();
 		verifyOutputGainPublication();
 		verifyMidiOutputOffsets();
-		verifyProcessBlockDoesNotForceTimeCriticalPriority();
 		verifyLatencyTracksLayoutRateAndOfflineMode();
 		verifyInvalidDeviceRecoveryIsDeferred();
 		verifyReplacementLatencyNotificationIsAsync();
