@@ -8,6 +8,7 @@
 #include "pluginVersion.h"
 #include "tools.h"
 #include "types.h"
+#include "winThreadAudit.h"
 
 #include "baseLib/binarystream.h"
 #include "baseLib/filesystem.h"
@@ -55,6 +56,10 @@ namespace pluginLib
 		synthLib::RomLoader::addSearchPath(getPublicRomFolder());
 		synthLib::RomLoader::addSearchPath(synthLib::getModulePath(true));
 		synthLib::RomLoader::addSearchPath(synthLib::getModulePath(false));
+
+		// Opt-in per-thread CPU attribution probe (GEARMULATOR_MDMM_THREAD_AUDIT=1).
+		// Default OFF; no-op unless the host process has the env var set.
+		WinThreadAudit::getInstance().start();
 	}
 
 	Processor::~Processor()

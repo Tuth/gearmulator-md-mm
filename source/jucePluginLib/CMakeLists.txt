@@ -34,6 +34,7 @@ set(SOURCES
 	processorPropertiesInit.h
 	programChangeRouter.cpp programChangeRouter.h
 	softknob.cpp softknob.h
+	winThreadAudit.cpp winThreadAudit.h
 	tools.cpp tools.h
 	types.h
 	version.h.in version.h
