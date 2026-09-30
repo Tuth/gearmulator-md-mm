@@ -34,7 +34,6 @@ set(SOURCES
 	processorPropertiesInit.h
 	programChangeRouter.cpp programChangeRouter.h
 	softknob.cpp softknob.h
-	winThreadAudit.cpp winThreadAudit.h
 	tools.cpp tools.h
 	types.h
 	version.h.in version.h
@@ -57,6 +56,16 @@ set(SOURCES_PATCHDB
 add_library(jucePluginLib STATIC)
 
 target_sources(jucePluginLib PRIVATE ${SOURCES} ${SOURCES_PATCHDB})
+
+# Release purity (STATE v42): the per-thread audit probe exists only in
+# diagnostics builds; a release binary does not compile or link it at all.
+# processor.cpp guards the start() call with GEARMULATOR_DIAGNOSTIC_LOGGING.
+# NOTE: CMAKE_PROJECT_NAME is still 'gearmulator' here because this
+# CMakeLists calls project() only WITHOUT the VERSION-less subproject
+# override taking effect before these lines evaluate.
+if(gearmulator_DIAGNOSTICS)
+	target_sources(jucePluginLib PRIVATE winThreadAudit.cpp winThreadAudit.h)
+endif()
 source_group("source" FILES ${SOURCES})
 source_group("source\\patchdb" FILES ${SOURCES_PATCHDB})
 

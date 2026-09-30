@@ -15,6 +15,9 @@ rem     plugins into an hours-old session (aged sessions inflate CPU readings).
 rem   - Reports appear in DebugView as lines prefixed with " [MDMM-TA] ".
 rem   - Capture ~30 s foreground, then ~30 s backgrounded, and compare the
 rem     per-thread CPU% rows between the two phases.
+rem   - The probe exists only in DIAGNOSTICS builds (-Dgearmulator_DIAGNOSTICS=ON,
+rem     build dir temp/cmake_win64_diag, products root bin/plugins-diag). A clean
+rem     release plugin contains no probe and never prints MDMM-TA lines.
 
 setlocal
 

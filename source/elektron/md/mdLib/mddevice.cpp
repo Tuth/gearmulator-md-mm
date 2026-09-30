@@ -29,14 +29,18 @@ namespace
 
 		if(data.size() != md::g_patchRamStateSize)
 		{
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 			std::fprintf(stderr,
 				"[MM] ignoring factory patch RAM with unexpected size: %s (%zu bytes, expected %u)\n",
 				filename.c_str(), data.size(), md::g_patchRamStateSize);
+#endif
 			return {};
 		}
 
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 		std::fprintf(stderr, "[MM] factory patch RAM discovered at %s (%zu bytes)\n",
 			filename.c_str(), data.size());
+#endif
 		return data;
 	}
 
@@ -84,9 +88,11 @@ namespace
 		if(!rom.isValid()
 			|| !md::decodeFactoryFlashCache(result.flash, cache, rom.data()))
 		{
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 			std::fprintf(stderr,
 				"[MD] ignoring invalid or ROM-mismatched UW factory cache: %s\n",
 				filename.c_str());
+#endif
 			return {};
 		}
 		result.cache = std::move(cache);
@@ -209,8 +215,10 @@ namespace md
 			: baseLib::filesystem::writeFileExclusive(_filename, _cache);
 		if(written)
 		{
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 			std::fprintf(stderr, "[MD] stored UW factory cache: %s\n",
 				_filename.c_str());
+#endif
 			return true;
 		}
 		// A concurrent first-run instance may have won the exclusive create.

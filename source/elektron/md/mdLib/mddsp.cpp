@@ -128,20 +128,27 @@ namespace md
 		// MD/MM JIT blocks are first compiled synchronously by the render thread.
 		// Disabling the optimizer improved the headless MM spike probe, but Thor's
 		// plugin host A/B showed MD CPU regressed and MM stayed neutral. Keep the
-		// proven host default, with an env override for diagnostics.
+		// proven host default, with an env override in diagnostics builds only
+		// (STATE v42).
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 		if(const auto* optimizer = std::getenv("GEARMULATOR_MDMM_JIT_OPTIMIZER");
 			optimizer)
 			config.enableOptimizer = std::strcmp(optimizer, "0") != 0;
 		else
 			config.enableOptimizer = true;
+#else
+		config.enableOptimizer = true;
+#endif
 		const auto* const jitTracePtr = &m_dsp.getJit();
 		config.getBlockConfig = [dspIndex = m_index, jitTracePtr](const dsp56k::TWord _pc)
 			-> std::optional<dsp56k::JitConfig>
 		{
 			synthLib::RealtimeInstrumentation::recordCurrentCallbackJitCompilation();
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 			if(envFlagEnabled("GEARMULATOR_MDMM_JIT_PC_TRACE"))
 				std::fprintf(stderr, "[MD] DSP%u JIT jit=%p pc=%06x\n",
 					dspIndex + 1, static_cast<const void*>(jitTracePtr), _pc);
+#endif
 			return {};
 		};
 		m_dsp.getJit().setConfig(config);

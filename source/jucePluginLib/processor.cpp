@@ -8,7 +8,9 @@
 #include "pluginVersion.h"
 #include "tools.h"
 #include "types.h"
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 #include "winThreadAudit.h"
+#endif
 
 #include "baseLib/binarystream.h"
 #include "baseLib/filesystem.h"
@@ -57,9 +59,13 @@ namespace pluginLib
 		synthLib::RomLoader::addSearchPath(synthLib::getModulePath(true));
 		synthLib::RomLoader::addSearchPath(synthLib::getModulePath(false));
 
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 		// Opt-in per-thread CPU attribution probe (GEARMULATOR_MDMM_THREAD_AUDIT=1).
 		// Default OFF; no-op unless the host process has the env var set.
+		// Release builds compile the probe hook out entirely (STATE v42); use
+		// the diagnostics build (-Dgearmulator_DIAGNOSTICS=ON) for measurement.
 		WinThreadAudit::getInstance().start();
+#endif
 	}
 
 	Processor::~Processor()

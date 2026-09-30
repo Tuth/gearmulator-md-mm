@@ -489,7 +489,9 @@ namespace md
 		// Default 16: measured PASS on both probes (audio 5.24 ms avg, under
 		// the 5.805 ms realtime budget; boot cold/restore PASS) while 32
 		// breaks audio fidelity and 64+ stalls the boot. Set 0 to disable.
+		// The env override exists only in diagnostics builds (STATE v42).
 		static const uint32_t s_batchCycles = []{
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 			const auto* v = std::getenv("GEARMULATOR_MDMM_UC_BATCH");
 			const auto v32 = v == nullptr ? 16u : static_cast<uint32_t>(std::atoi(v));
 			// Hard cap: Musashi's m68k_execute only checks interrupts at batch
@@ -497,7 +499,11 @@ namespace md
 			// batch length. Measured: 64-cycle batches already break the boot
 			// handshake, 32-cycle batches break audio fidelity. 32 is the
 			// absolute ceiling; 8-16 is the tested-safe range.
-			return std::min(v32, 32u); }();
+			return std::min(v32, 32u);
+#else
+			return 16u;
+#endif
+		}();
 
 		if(s_batchCycles && m_ucBatchEnabled)
 		{

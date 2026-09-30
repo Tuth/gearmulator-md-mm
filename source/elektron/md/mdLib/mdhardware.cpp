@@ -724,8 +724,10 @@ namespace md
 				m_pendingFlashRestoreFailed.store(true, std::memory_order_release);
 				m_pendingFlashRestoreActive.store(false, std::memory_order_release);
 				m_externalInteraction.store(true, std::memory_order_relaxed);
+				#if GEARMULATOR_DIAGNOSTIC_LOGGING
 				std::fprintf(stderr,
 					"[MD] project flash does not match the initialized factory baseline\n");
+				#endif
 				return;
 			}
 		}
@@ -1046,10 +1048,16 @@ namespace md
 	{
 		// PC histogram master switch (shares GEARMULATOR_MDMM_PROFILE with the
 		// schedStep wall-time profiler). File-scope static so the check is one
-		// relaxed load per UC instruction when disabled.
+		// relaxed load per UC instruction when disabled. Release builds compile
+		// the profiler out entirely (STATE v42); no env string in the binary.
 		static const bool s_profileUcHistogram = []{
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 			const auto* v = std::getenv("GEARMULATOR_MDMM_PROFILE");
-			return v != nullptr && std::strcmp(v, "0") != 0; }();
+			return v != nullptr && std::strcmp(v, "0") != 0;
+#else
+			return false;
+#endif
+		}();
 
 		// Deliver queued panel input to firmware over UART2 RX. The existing
 		// release/acquire pending count is a counted-work wake, not a second dirty
@@ -1371,10 +1379,16 @@ namespace md
 	{
 		// Component profiling: attribute this whole iteration to the component
 		// selected below (UC slice / DSP1 slice / DSP2 slice), or "other" when
-		// the loop exits without executing. Enabled by GEARMULATOR_MDMM_PROFILE.
+		// the loop exits without executing. Enabled by GEARMULATOR_MDMM_PROFILE
+		// in diagnostics builds only (STATE v42).
 		static const bool s_profile = []{
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 			const auto* v = std::getenv("GEARMULATOR_MDMM_PROFILE");
-			return v != nullptr && std::strcmp(v, "0") != 0; }();
+			return v != nullptr && std::strcmp(v, "0") != 0;
+#else
+			return false;
+#endif
+		}();
 		const auto profStart = s_profile ? std::chrono::steady_clock::now()
 			: std::chrono::steady_clock::time_point{};
 		const double ucPerFrame   = schedUcCyclesPerFrame();
@@ -1802,8 +1816,10 @@ namespace md
 			return;
 		case RamPackingUpdate::UnexpectedCode:
 			m_ramRecordingModePending = false;
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
 			std::fprintf(stderr,
 				"[MD] RAM recording compatibility mode unavailable: unexpected loaded program\n");
+#endif
 			return;
 		}
 	}
