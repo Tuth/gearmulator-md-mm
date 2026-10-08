@@ -406,6 +406,24 @@ namespace md
 		mutable std::vector<uint64_t> m_profUcPcHistogram;
 		mutable uint64_t m_profUcPcSamples = 0;
 		mutable uint32_t m_profUcHistSampler = 0;
+		// Runtime perf counters. Always counted (plain increments on the machine thread);
+		// reported only when %TEMP%\mdmm_perf.enable exists at construction, as rates per
+		// emulated second appended to %TEMP%\mdmm_perf.log every ~5 s of wall time.
+		struct PerfCounters
+		{
+			uint64_t steps[3] = {};			// schedStep slices: UC, DSP1, DSP2
+			uint64_t sliceCycles[2] = {};		// DSP cycles run by scheduler slices
+			uint64_t ucProcess = 0;			// processUC() calls
+			uint64_t cuCalls[2] = {}, cuRan[2] = {}, cuExec[2] = {}, cuCycles[2] = {};		// schedCatchUpDsp
+			uint64_t d2dCalls[2] = {}, d2dRan[2] = {}, d2dExec[2] = {}, d2dCycles[2] = {};	// schedCatchUpDspToDsp, by consumer
+		};
+		PerfCounters m_perf, m_perfPrev;
+		bool m_perfOn = false;
+		char m_perfPath[512] = {};
+		int64_t m_perfT0ns = 0;
+		double m_perfFrames0 = 0.0;
+		uint64_t m_perfEsxiPrev[2] = {}, m_perfPflushPrev[2] = {}, m_perfDspCycPrev[2] = {};
+		void perfReport();
 
 	bool     schedStep();					// one advance() event-loop iteration; false once all caught up
 		double   schedDspFramePos(uint32_t _dspIndex);	// a runnable DSP's machine-frame position
@@ -418,6 +436,7 @@ namespace md
 		std::atomic<uint64_t> m_schedHostAudioOverflow{0};
 		bool     m_schedHostAudioActive = false;	// retain drained frames for a host callback
 		bool     m_schedBoundedJit = true;		// cycle-bounded DSP background slices
+		bool     m_schedBoundedCatchUp = true;	// cycle-bounded UC->DSP / DSP->DSP catch-up runs
 		std::array<RealtimeHostAudioInputTimeline, 2> m_hostAudioInput;
 		std::array<int64_t, 2> m_hostAudioInputClockOrigin{};
 		std::array<uint64_t, 2> m_hostAudioInputNextRxIndex{};

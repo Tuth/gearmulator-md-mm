@@ -131,6 +131,21 @@ namespace md
 		// established path as a field fallback and exact A/B control.
 		const auto* const boundedJit = std::getenv("GEARMULATOR_MDMM_BOUNDED_JIT");
 		m_schedBoundedJit = boundedJit == nullptr || std::strcmp(boundedJit, "0") != 0;
+		const auto* const boundedCatchUp = std::getenv("GEARMULATOR_MDMM_BOUNDED_CATCHUP");
+		m_schedBoundedCatchUp = boundedCatchUp == nullptr || std::strcmp(boundedCatchUp, "0") != 0;
+
+		// Perf counter report switch: a file, so no host restart / env var is needed.
+		if(const char* tmp = std::getenv("TEMP"))
+		{
+			char flag[512];
+			std::snprintf(flag, sizeof(flag), "%s\\mdmm_perf.enable", tmp);
+			if(FILE* f = std::fopen(flag, "rb"))
+			{
+				std::fclose(f);
+				m_perfOn = true;
+				std::snprintf(m_perfPath, sizeof(m_perfPath), "%s\\mdmm_perf.log", tmp);
+			}
+		}
 
 		if(!m_rom.isValid())
 			return;
@@ -1046,6 +1061,7 @@ namespace md
 
 	void Hardware::processUC()
 	{
+		++m_perf.ucProcess;
 		// PC histogram master switch (shares GEARMULATOR_MDMM_PROFILE with the
 		// schedStep wall-time profiler). File-scope static so the check is one
 		// relaxed load per UC instruction when disabled. Release builds compile
@@ -1558,6 +1574,7 @@ namespace md
 			}
 			while(static_cast<double>(m_schedUcCyclesDone) / ucPerFrame < subTarget
 				&& m_schedUcCyclesDone < clampStop);
+			++m_perf.steps[0];
 #if MD_TRANSPORT_DIAGNOSTICS
 			const auto diagnosticExecuted = m_schedUcCyclesDone - diagnosticStart;
 			score.executedCycles += diagnosticExecuted;
@@ -1609,6 +1626,8 @@ namespace md
 			else
 				++score.unexpectedShort;
 #endif
+			++m_perf.steps[who];
+			m_perf.sliceCycles[idx] += d.dsp().getCycles() - startCyc;
 			if(who == 1)
 				schedDrainCodecOutput();		// keep the mixer ESSI1 output ring shallow
 			}
@@ -1658,6 +1677,7 @@ namespace md
 		// of spinning while the DSP is frozen for the UC's whole background quantum. Bounded by the
 		// catch-up clamp; monotone (never runs the DSP backwards or past the UC).
 		const uint32_t i = _dspIndex & 1;
+		++m_perf.cuCalls[i];
 #if MD_TRANSPORT_DIAGNOSTICS
 		auto& score = m_transportScorecard.coldFireToDsp[i];
 		++score.calls;
@@ -1692,10 +1712,29 @@ namespace md
 		// catch-up loops are how a DSP outruns the UC by thousands of words in the first place
 		// (see the schedStep backpressure comment). MD path untouched.
 		const bool s_mmBp = isMonomachine();
-		while(d.dsp().getCycles() < targetCyc && d.dsp().getCycles() < clampStop
+		++m_perf.cuRan[i];
+		// Bounded catch-up: one trampoline entry runs cached blocks until the target
+		// (execUntilCycles: same peripheral/interrupt checks before every block as exec(),
+		// same block-boundary stop). The per-block exec() loop cost a full C++<->JIT round
+		// trip per 4-7 DSP cycles - ~3M entries/s on an idle Monomachine (perf counters,
+		// 2026-10-04). MM backpressure is evaluated once at entry instead of per block; a
+		// catch-up spans ~30-90 cycles. GEARMULATOR_MDMM_BOUNDED_CATCHUP=0 restores the loop.
+		if(m_schedBoundedCatchUp)
+		{
+			if(!s_mmBp || d.hostTxBacklog() <= policy.hostTransmitBackpressureThresholdWords)
+			{
+				d.dsp().execUntilCycles(std::min(targetCyc, clampStop));
+				++m_perf.cuExec[i];
+			}
+		}
+		else while(d.dsp().getCycles() < targetCyc && d.dsp().getCycles() < clampStop
 			&& (!s_mmBp
 				|| d.hostTxBacklog() <= policy.hostTransmitBackpressureThresholdWords))
+		{
 			d.dsp().exec();
+			++m_perf.cuExec[i];
+		}
+		m_perf.cuCycles[i] += d.dsp().getCycles() - startCyc;
 		MD_TRANSPORT_RECORD(const auto executed = d.dsp().getCycles() - startCyc;
 			score.executedCycles += executed;
 			score.maximumExecutedCycles = std::max(score.maximumExecutedCycles, executed);
@@ -1720,6 +1759,7 @@ namespace md
 		// or by the scheduler). Bounded by the catch-up clamp; only ever runs a DSP forward.
 		const uint32_t c = _consumer & 1;
 		const uint32_t p = _producer & 1;
+		++m_perf.d2dCalls[c];
 #if MD_TRANSPORT_DIAGNOSTICS
 		auto& score = m_transportScorecard.dspToDsp[c];
 		++score.calls;
@@ -1761,10 +1801,29 @@ namespace md
 			score.maximumRequestedCycles = std::max(score.maximumRequestedCycles, requested););
 		m_schedInLinkDelivery = true;
 		const bool bpGate = isMonomachine();
-		while(d.dsp().getCycles() < targetCyc && d.dsp().getCycles() < clampStop
+		++m_perf.d2dRan[c];
+		// Bounded catch-up: one trampoline entry runs cached blocks until the target
+		// (execUntilCycles: same peripheral/interrupt checks before every block as exec(),
+		// same block-boundary stop). The per-block exec() loop cost a full C++<->JIT round
+		// trip per 4-7 DSP cycles - ~3M entries/s on an idle Monomachine (perf counters,
+		// 2026-10-04). MM backpressure is evaluated once at entry instead of per block; a
+		// catch-up spans ~30-90 cycles. GEARMULATOR_MDMM_BOUNDED_CATCHUP=0 restores the loop.
+		if(m_schedBoundedCatchUp)
+		{
+			if(!bpGate || d.hostTxBacklog() <= policy.hostTransmitBackpressureThresholdWords)
+			{
+				d.dsp().execUntilCycles(std::min(targetCyc, clampStop));
+				++m_perf.d2dExec[c];
+			}
+		}
+		else while(d.dsp().getCycles() < targetCyc && d.dsp().getCycles() < clampStop
 			&& (!bpGate
 				|| d.hostTxBacklog() <= policy.hostTransmitBackpressureThresholdWords))
+		{
 			d.dsp().exec();
+			++m_perf.d2dExec[c];
+		}
+		m_perf.d2dCycles[c] += d.dsp().getCycles() - startCyc;
 		m_schedInLinkDelivery = false;
 		MD_TRANSPORT_RECORD(const auto executed = d.dsp().getCycles() - startCyc;
 			score.executedCycles += executed;
@@ -1788,12 +1847,81 @@ namespace md
 		while(schedStep())
 		{
 		}
+		if(m_perfOn)
+			perfReport();
 
 		schedDrainCodecOutput();					// final drain (also covers a UC-only advance window)
 		advanceFactoryFlashCapture();
 		// Never make the emulation/audio thread wait for a UI snapshot read. If the
 		// reader owns the short copy lock, the next machine interval republishes.
 		m_frontPanelPublisher->tryPublish(m_frontPanel);
+	}
+
+	void Hardware::perfReport()
+	{
+		// Rates per EMULATED second over a ~5 s wall window; see PerfCounters in mdhardware.h.
+		const int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+			std::chrono::steady_clock::now().time_since_epoch()).count();
+		uint64_t esxi[2], pfl[2], cyc[2];
+		for(uint32_t i = 0; i < 2; ++i)
+		{
+			auto& d = (i == 0) ? m_dspMixer : m_dspProducer;
+			esxi[i] = d.getPeriph().getEssiClock().perfExecCount();
+			pfl[i]  = d.dsp().perfPflushCount();
+			cyc[i]  = d.dsp().getCycles();
+		}
+		auto snapshot = [&]
+		{
+			m_perfPrev = m_perf;
+			m_perfT0ns = nowNs;
+			m_perfFrames0 = m_schedFramesTotal;
+			for(uint32_t i = 0; i < 2; ++i)
+			{
+				m_perfEsxiPrev[i] = esxi[i];
+				m_perfPflushPrev[i] = pfl[i];
+				m_perfDspCycPrev[i] = cyc[i];
+			}
+		};
+		if(m_perfT0ns == 0)
+		{
+			snapshot();
+			return;
+		}
+		const double wall = static_cast<double>(nowNs - m_perfT0ns) * 1e-9;
+		if(wall < 5.0)
+			return;
+		const double emu = (m_schedFramesTotal - m_perfFrames0) / static_cast<double>(g_samplerate);
+		if(emu > 0.0)
+		{
+			if(FILE* f = std::fopen(m_perfPath, "ab"))
+			{
+				auto r = [emu](const uint64_t _now, const uint64_t _prev)
+				{
+					return static_cast<double>(_now - _prev) / emu;
+				};
+				const auto& a = m_perf;
+				const auto& b = m_perfPrev;
+				std::fprintf(f, "%s wall=%.2fs emu=%.2fs  UC: slices/s=%.0f processUC/s=%.0f\n",
+					isMonomachine() ? "MM" : "MD", wall, emu, r(a.steps[0], b.steps[0]),
+					r(a.ucProcess, b.ucProcess));
+				for(uint32_t i = 0; i < 2; ++i)
+				{
+					const double slices = r(a.steps[i + 1], b.steps[i + 1]);
+					std::fprintf(f, "  DSP%u: cyc/s=%.2fM | slices/s=%.0f avg=%.0fcyc | catchUpUC calls/s=%.0f ran/s=%.0f"
+						" exec/s=%.0f cyc/s=%.2fM | catchUpD2D calls/s=%.0f ran/s=%.0f exec/s=%.0f cyc/s=%.2fM"
+						" | esxiExec/s=%.0f | pflush/s=%.0f\n",
+						i + 1, r(cyc[i], m_perfDspCycPrev[i]) * 1e-6,
+						slices, slices > 0 ? r(a.sliceCycles[i], b.sliceCycles[i]) / slices : 0.0,
+						r(a.cuCalls[i], b.cuCalls[i]), r(a.cuRan[i], b.cuRan[i]),
+						r(a.cuExec[i], b.cuExec[i]), r(a.cuCycles[i], b.cuCycles[i]) * 1e-6,
+						r(a.d2dCalls[i], b.d2dCalls[i]), r(a.d2dRan[i], b.d2dRan[i]),
+						r(a.d2dExec[i], b.d2dExec[i]), r(a.d2dCycles[i], b.d2dCycles[i]) * 1e-6,
+						r(esxi[i], m_perfEsxiPrev[i]), r(pfl[i], m_perfPflushPrev[i]));
+				}
+				std::fclose(f);
+			}
+		}
+		snapshot();
 	}
 
 	void Hardware::requestRamRecordingMode(const RamRecordingMode _mode)
