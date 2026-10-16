@@ -303,3 +303,7 @@ if(BUILD_TESTING)
 	set_tests_properties(mdTurboMidiUnitTest mdSdsTransferTest PROPERTIES FIXTURES_SETUP MdSysexTransport)
 	set_property(TEST mdLibTests mdAudioQueueTest APPEND PROPERTY FIXTURES_REQUIRED MdSysexTransport)
 endif()
+
+# Local diagnostic: Arithmetic Saturation Mode (SR SM) use by the MD/MM DSP code (not in the suite)
+add_executable(smScanProbe EXCLUDE_FROM_ALL smScanProbe.cpp)
+target_link_libraries(smScanProbe PRIVATE mdLib)

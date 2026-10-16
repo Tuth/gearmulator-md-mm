@@ -35,6 +35,21 @@ include(CTest)
 option(${PROJECT_NAME}_BUILD_JUCEPLUGIN "Build Juce plugin" on)
 option(${PROJECT_NAME}_BUILD_JUCEPLUGIN_CLAP "Build CLAP version of Juce plugin" on)
 
+# ----------------- Diagnostics build switch (STATE v42)
+
+# Release purity rule (Thor, 2026-09-30): a release plugin must contain no
+# debug logging, no tracing and no probes - build-time switch, not env vars.
+# Default OFF = clean release. ON = measurement/diagnostic build with all
+# probes compiled in (still env-gated at runtime where they already are).
+# The DSP submodule bridges this via DSP56K_DIAGNOSTIC_LOGGING
+# (source/dsp56300/source/dsp56kBase/logging.h).
+option(${PROJECT_NAME}_DIAGNOSTICS "Compile diagnostics logging and probes into the binaries" OFF)
+if(${PROJECT_NAME}_DIAGNOSTICS)
+	add_compile_definitions(GEARMULATOR_DIAGNOSTIC_LOGGING=1)
+else()
+	add_compile_definitions(GEARMULATOR_DIAGNOSTIC_LOGGING=0)
+endif()
+
 # ----------------- CPack basic parameters
 
 message("CMAKE_SYSTEM_NAME: " ${CMAKE_SYSTEM_NAME})

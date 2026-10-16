@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -62,18 +63,18 @@ int main()
 
 		// A blank UW flash exercises the long first-run initialization whose LCD
 		// animation is paced by the firmware's own DSP-HREQ-driven software timer.
-		md::Hardware fresh(rom, path, md::MachineModel::Machinedrum);
-		require(fresh.isValid(), "fresh machine was invalid");
-		require(fresh.isFactoryFlashInitializationExpected(),
+		auto fresh = std::make_unique<md::Hardware>(rom, path, md::MachineModel::Machinedrum);
+		require(fresh->isValid(), "fresh machine was invalid");
+		require(fresh->isFactoryFlashInitializationExpected(),
 			"fresh machine did not enter factory initialization");
-		advance(fresh, 18);
-		requireBootedPanel(fresh, "fresh boot");
-		require(fresh.flashDirty(), "fresh boot did not initialize UW flash");
-		require(fresh.isFactoryFlashCacheReady(),
+		advance(*fresh, 18);
+		requireBootedPanel(*fresh, "fresh boot");
+		require(fresh->flashDirty(), "fresh boot did not initialize UW flash");
+		require(fresh->isFactoryFlashCacheReady(),
 			"fresh boot did not publish the initialized flash cache");
 
-		const auto initializedFlash = fresh.copyFlashData();
-		const auto factoryCache = fresh.copyFactoryFlashCache();
+		const auto initializedFlash = fresh->copyFlashData();
+		const auto factoryCache = fresh->copyFactoryFlashCache();
 		require(!factoryCache.empty(), "fresh boot produced an empty factory cache");
 		std::vector<uint8_t> decodedFlash;
 		require(md::decodeFactoryFlashCache(decodedFlash, factoryCache, rom),
@@ -83,16 +84,17 @@ int main()
 
 		// Repeat launch from that exact initialized image. This covers the ordinary
 		// startup path as well as the blank-flash path above.
-		md::Hardware repeat(rom, path, md::MachineModel::Machinedrum,
-			{}, {}, initializedFlash, factoryCache);
-		require(repeat.isValid(), "repeat-launch machine was invalid");
-		require(!repeat.isFactoryFlashInitializationExpected(),
+		auto repeat = std::make_unique<md::Hardware>(rom, path, md::MachineModel::Machinedrum,
+			std::vector<uint8_t>{}, std::shared_ptr<md::FrontPanelPublisher>{},
+			initializedFlash, factoryCache);
+		require(repeat->isValid(), "repeat-launch machine was invalid");
+		require(!repeat->isFactoryFlashInitializationExpected(),
 			"repeat launch unexpectedly entered factory initialization");
-		advance(repeat, 12);
-		requireBootedPanel(repeat, "repeat boot");
+		advance(*repeat, 12);
+		requireBootedPanel(*repeat, "repeat boot");
 
-		const auto freshPanel = fresh.getFrontPanelSnapshot();
-		const auto repeatPanel = repeat.getFrontPanelSnapshot();
+		const auto freshPanel = fresh->getFrontPanelSnapshot();
+		const auto repeatPanel = repeat->getFrontPanelSnapshot();
 		std::cout << "MD firmware-owned panel readiness passed: fresh bytes="
 			<< freshPanel.getByteCount() << ", tiles=" << freshPanel.getTileWriteCount()
 			<< ", lit=" << freshPanel.countLitPixels() << "; repeat bytes="

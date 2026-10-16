@@ -104,7 +104,7 @@ namespace
 			for(const auto& event : events)
 				if(event.sysex.size() > 14 && event.sysex[4] == 3
 					&& event.sysex[6] == _command && event.sysex[9] == _slot)
-					host = event.sysex;
+					host.assign(event.sysex.begin(), event.sysex.end());
 		}
 		_hardware.getUC().setMidiTransmitTap({});
 		const auto rawMessage = findMessage(raw, _command, _slot);
@@ -211,7 +211,11 @@ namespace
 
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+	std::setvbuf(stdout, nullptr, _IONBF, 0);
+#else
 	std::setvbuf(stdout, nullptr, _IOLBF, 0);
+#endif
 	if(argc != 3 && argc != 4)
 	{
 		std::puts("usage: mmSysexExportFirmwareTest <MM-ROM> <1MiB-patch-ram> [full]");

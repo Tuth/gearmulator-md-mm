@@ -37,10 +37,16 @@ namespace
 
 	bool enabledFromEnvironment() noexcept
 	{
+#if !GEARMULATOR_DIAGNOSTIC_LOGGING
+		// Release purity (STATE v42): instrumentation cannot be activated in a
+		// release build at all; rebuild with -Dgearmulator_DIAGNOSTICS=ON.
+		return false;
+#else
 		const auto* const value = std::getenv("GEARMULATOR_RT_INSTRUMENTATION");
 		return value != nullptr && (std::string_view(value) == "1"
 			|| std::string_view(value) == "true"
 			|| std::string_view(value) == "TRUE");
+#endif
 	}
 }
 

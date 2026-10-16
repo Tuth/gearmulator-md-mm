@@ -169,6 +169,14 @@ namespace md
 		// Role accessors used by the HI08 bridge and scheduler.
 		Dsp& getDspProducer() { return m_dspProducer; }	// DSP2, index 1
 		Dsp& getDspMixer()    { return m_dspMixer; }	// DSP1, index 0 (main/output)
+		// ESSI0 link frames waiting for the given DSP's receiver (0 = DSP1, 1 = DSP2).
+		// Monomachine timed block sync: edges that had to become visible early
+		// because the fixed edge queue was full (expected 0).
+		uint64_t getMmSyncEdgeOverflows() const { return m_mmSyncEdgeOverflows; }
+		LinkInputRing& linkInputs(const uint32_t _dspIndex)
+		{
+			return (_dspIndex == 0 ? m_dspMixer : m_dspProducer).linkInputs();
+		}
 
 		void processUC();
 		void processAudio(uint32_t _frames, uint32_t _latency);
@@ -196,6 +204,31 @@ namespace md
 		// Diagnostic snapshot. The caller must serialize with the machine thread,
 		// as Device does for its other control-plane observations.
 		TransportScorecard getTransportScorecard() noexcept;
+
+		// Component wall-time profile (GEARMULATOR_MDMM_PROFILE=1): host ms spent
+		// in UC / DSP1 / DSP2 scheduler slices since the last reset. Caller
+		// serializes with the machine thread like getTransportScorecard.
+		struct ComponentProfileMs { double uc, dsp1, dsp2, other; };
+		ComponentProfileMs getComponentProfileMs() const
+		{
+			return {m_profUcMs, m_profDsp1Ms, m_profDsp2Ms, m_profOtherMs};
+		}
+		struct ComponentProfileMaxMs { double uc, dsp1, dsp2; };
+		ComponentProfileMaxMs getComponentProfileMaxMs() const
+		{
+			return {m_profUcMax, m_profDsp1Max, m_profDsp2Max};
+		}
+		uint64_t getUcSkippedInstructions() const { return m_profUcSkippedInstructions; }
+		const std::vector<uint64_t>& getUcPcHistogram() const { return m_profUcPcHistogram; }
+		uint64_t getUcPcHistogramSamples() const { return m_profUcPcSamples; }
+		void resetComponentProfileMs() const
+		{
+			m_profUcMs = m_profDsp1Ms = m_profDsp2Ms = m_profOtherMs = 0;
+			m_profUcMax = m_profDsp1Max = m_profDsp2Max = 0;
+			m_profUcSkippedInstructions = 0;
+			m_profUcPcHistogram.clear();
+			m_profUcPcSamples = 0;
+		}
 		void recordInlineHdi08Run(uint32_t _dspIndex, uint64_t _startCycle,
 			uint64_t _clampCycle, bool _workComplete) noexcept;
 		void recordMdLinkPurge(size_t _purgedFrames) noexcept;
@@ -348,7 +381,51 @@ namespace md
 		// rate-locked to the clock from the frame it becomes runnable (origin latched here). See
 		// advance() in mdhardware.cpp for the loop and timing constants.
 		// ---------------------------------------------------------------------------------------
-		bool     schedStep();					// one advance() event-loop iteration; false once all caught up
+		// Component wall-clock profiling (debug instrumentation, off by default):
+		// accumulate host time spent in each scheduler component across a
+		// processAudio window. Enabled via GEARMULATOR_MDMM_PROFILE=1 so the
+		// steady-state probe (mmAudioFirmwareTest) can attribute the realtime
+		// deficit to UC vs DSP1 vs DSP2 execution.
+		mutable double m_profUcMs = 0;
+		mutable double m_profDsp1Ms = 0;
+		mutable double m_profDsp2Ms = 0;
+		mutable double m_profOtherMs = 0;
+		// Largest single scheduler slice per component in the window: attributes
+		// block-level spikes (e.g. a 25 ms overshoot) to a specific component.
+		mutable double m_profUcMax = 0;
+		mutable double m_profDsp1Max = 0;
+		mutable double m_profDsp2Max = 0;
+		// UC idle-skip accounting: instructions (and cycles, 2 per instruction)
+		// elided by the BRA.B -2 self-branch skip in the window. If this is
+		// near zero while the UC dominates wall time, the ColdFire firmware is
+		// NOT idling in the recognizable self-branch loop and the skip never
+		// fires - the next optimization target.
+		mutable uint64_t m_profUcSkippedInstructions = 0;
+		// Sampled UC PC histogram (bucket = PC >> 8, i.e. 256-byte regions).
+		// Sampled every 64th processUC instruction; read via getUcPcHistogram().
+		mutable std::vector<uint64_t> m_profUcPcHistogram;
+		mutable uint64_t m_profUcPcSamples = 0;
+		mutable uint32_t m_profUcHistSampler = 0;
+		// Runtime perf counters. Always counted (plain increments on the machine thread);
+		// reported only when %TEMP%\mdmm_perf.enable exists at construction, as rates per
+		// emulated second appended to %TEMP%\mdmm_perf.log every ~5 s of wall time.
+		struct PerfCounters
+		{
+			uint64_t steps[3] = {};			// schedStep slices: UC, DSP1, DSP2
+			uint64_t sliceCycles[2] = {};		// DSP cycles run by scheduler slices
+			uint64_t ucProcess = 0;			// processUC() calls
+			uint64_t cuCalls[2] = {}, cuRan[2] = {}, cuExec[2] = {}, cuCycles[2] = {};		// schedCatchUpDsp
+			uint64_t d2dCalls[2] = {}, d2dRan[2] = {}, d2dExec[2] = {}, d2dCycles[2] = {};	// schedCatchUpDspToDsp, by consumer
+		};
+		PerfCounters m_perf, m_perfPrev;
+		bool m_perfOn = false;
+		char m_perfPath[512] = {};
+		int64_t m_perfT0ns = 0;
+		double m_perfFrames0 = 0.0;
+		uint64_t m_perfEsxiPrev[2] = {}, m_perfPflushPrev[2] = {}, m_perfDspCycPrev[2] = {};
+		void perfReport();
+
+	bool     schedStep();					// one advance() event-loop iteration; false once all caught up
 		double   schedDspFramePos(uint32_t _dspIndex);	// a runnable DSP's machine-frame position
 		void     schedDrainCodecOutput();		// pop the mixer ESSI1 output ring so its TX never blocks
 		void     schedCatchUpDspToDsp(uint32_t _consumer, uint32_t _producer);
@@ -359,6 +436,7 @@ namespace md
 		std::atomic<uint64_t> m_schedHostAudioOverflow{0};
 		bool     m_schedHostAudioActive = false;	// retain drained frames for a host callback
 		bool     m_schedBoundedJit = true;		// cycle-bounded DSP background slices
+		bool     m_schedBoundedCatchUp = true;	// cycle-bounded UC->DSP / DSP->DSP catch-up runs
 		std::array<RealtimeHostAudioInputTimeline, 2> m_hostAudioInput;
 		std::array<int64_t, 2> m_hostAudioInputClockOrigin{};
 		std::array<uint64_t, 2> m_hostAudioInputNextRxIndex{};
@@ -388,7 +466,40 @@ namespace md
 		std::atomic<bool> m_mmLinkAwaitFresh{false};	// PDRC edge awaits DSP2's DMA reply
 		std::atomic<uint64_t> m_mmLinkStrobeEpoch{0};	// cancels delivery after nested catch-up
 		uint32_t m_mmLinkStrobeLevel = 2;		// mixer-context edge detector; 2 = no level observed yet
+		// Monomachine block sync: DSP1's Port C bit 1 edges reach DSP2 at the DSP2 cycle matching DSP1's write,
+		// not at whatever cycle DSP2 has reached when the scheduler runs that write.
+		bool m_mmTimedSync = false;
+		// Edges waiting for DSP2's clock, oldest first. Fixed capacity because the
+		// queue is used on the emulation (audio) thread and must not allocate.
+		// Measured depth: one edge in steady state, at most 11 during boot bursts.
+		class MmSyncEdgeQueue
+		{
+		public:
+			struct Edge { uint64_t dsp2Cycle; dsp56k::TWord level; };
+			static constexpr size_t Capacity = 64;
+
+			bool empty() const { return m_count == 0; }
+			bool full() const { return m_count == Capacity; }
+			const Edge& front() const { return m_edges[m_head]; }
+			void pop() { m_head = (m_head + 1) & (Capacity - 1); --m_count; }
+			void push(const uint64_t _dsp2Cycle, const dsp56k::TWord _level)
+			{
+				m_edges[(m_head + m_count) & (Capacity - 1)] = {_dsp2Cycle, _level};
+				++m_count;
+			}
+
+		private:
+			static_assert((Capacity & (Capacity - 1)) == 0, "capacity must be a power of two");
+			std::array<Edge, Capacity> m_edges{};
+			size_t m_head = 0;
+			size_t m_count = 0;
+		};
+		MmSyncEdgeQueue m_mmSyncEdges;
+		uint64_t m_mmSyncEdgeOverflows = 0;	// edges made visible early because the queue was full
+		dsp56k::TWord m_mmSyncLevel = 0;
+		uint64_t mmProducerCycleAtMixerNow();
 		bool     m_schedDspOriginLatched[2] = { false, false };	// [0]=mixer/DSP1, [1]=producer/DSP2
+		bool     m_ucBatchEnabled = false;	// mirrors isFirmwareMidiReady() each schedStep (see schedStep)
 		double   m_schedDspOriginFrame [2]  = { 0.0, 0.0 };		// machine-frame at runnable transition
 		uint64_t m_schedDspOriginCycles[2]  = { 0, 0 };			// getCycles() at that transition
 		uint64_t m_schedDspOriginUcCycles[2] = { 0, 0 };		// exact host clock at that transition

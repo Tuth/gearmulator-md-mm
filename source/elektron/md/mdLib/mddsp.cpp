@@ -6,6 +6,10 @@
 #include "mc68k/hdi08.h"
 #include "synthLib/realtimeInstrumentation.h"
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
 namespace md
 {
 	using dsp56k::TWord;
@@ -24,6 +28,12 @@ namespace md
 		// compiles cleanly under the JIT.
 		constexpr TWord g_trapFillEnd = 0x020000;
 		constexpr TWord g_fillInstr   = 0x00000C;	// RTS
+
+		bool envFlagEnabled(const char* const _name)
+		{
+			const auto* const value = std::getenv(_name);
+			return value != nullptr && std::strcmp(value, "0") != 0;
+		}
 
 	}
 
@@ -57,7 +67,7 @@ namespace md
 		{
 			m_periphX.getEssi0().setRxDataAvailableCallback([this]
 			{
-				return !m_periphX.getEssi0().getAudioInputs().empty();
+				return !m_linkInputs.empty();
 			});
 
 			// An RX0 read with DMA4 disabled flushes staged link data. DMA reads
@@ -69,7 +79,7 @@ namespace md
 				{
 					if(m_periphX.getDMA().getDCR(4) & (1u << dsp56k::DmaChannel::De))
 						return;
-					auto& ring = m_periphX.getEssi0().getAudioInputs();
+					auto& ring = m_linkInputs;
 #if MD_TRANSPORT_DIAGNOSTICS
 					const auto purgedFrames = ring.size();
 #endif
@@ -115,15 +125,30 @@ namespace md
 		config.maxInstructionsPerBlock = 32;
 		// Likewise return from hardware DO loops regularly to service peripherals.
 		config.maxDoIterations = 4;
-#if defined(__APPLE__) && defined(__aarch64__)
-		// JIT blocks are first compiled synchronously by the audio thread. On Apple
-		// silicon, the optimizer's cold cost exceeds its measured steady-state gain.
-		config.enableOptimizer = false;
+		// MD/MM JIT blocks are first compiled synchronously by the render thread.
+		// Disabling the optimizer improved the headless MM spike probe, but Thor's
+		// plugin host A/B showed MD CPU regressed and MM stayed neutral. Keep the
+		// proven host default, with an env override in diagnostics builds only
+		// (STATE v42).
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
+		if(const auto* optimizer = std::getenv("GEARMULATOR_MDMM_JIT_OPTIMIZER");
+			optimizer)
+			config.enableOptimizer = std::strcmp(optimizer, "0") != 0;
+		else
+			config.enableOptimizer = true;
+#else
+		config.enableOptimizer = true;
 #endif
-		config.getBlockConfig = [](const TWord)
+		const auto* const jitTracePtr = &m_dsp.getJit();
+		config.getBlockConfig = [dspIndex = m_index, jitTracePtr](const dsp56k::TWord _pc)
 			-> std::optional<dsp56k::JitConfig>
 		{
 			synthLib::RealtimeInstrumentation::recordCurrentCallbackJitCompilation();
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
+			if(envFlagEnabled("GEARMULATOR_MDMM_JIT_PC_TRACE"))
+				std::fprintf(stderr, "[MD] DSP%u JIT jit=%p pc=%06x\n",
+					dspIndex + 1, static_cast<const void*>(jitTracePtr), _pc);
+#endif
 			return {};
 		};
 		m_dsp.getJit().setConfig(config);
@@ -139,6 +164,10 @@ namespace md
 
 		// Keep the DSP from blocking on empty serial input during boot.
 		m_periphX.getEssi0().writeEmptyAudioIn(64);
+		// The link now travels through m_linkInputs (see mdlinkring.h): give it the
+		// same 64-frame empty prefill the ESSI0 input ring has.
+		for(int i = 0; i < 64; ++i)
+			m_linkInputs.push_back(dsp56k::Audio::RxFrame{});
 		m_periphX.getEssi1().writeEmptyAudioIn(64);
 
 		hdi08().setRXRateLimit(0);

@@ -5,6 +5,7 @@
 #include <functional>
 #include <vector>
 
+#include "mdlinkring.h"
 #include "mdtimedhostrx.h"
 
 #include "dsp56kEmu/dsp.h"
@@ -54,6 +55,8 @@ namespace md
 		size_t hostTxBacklog();
 		dsp56k::DSP&              dsp()       { return m_dsp; }
 		dsp56k::Peripherals56303& getPeriph() { return m_periphX; }
+		// ESSI0 link frames sent by the peer DSP, waiting for this DSP's receiver.
+		LinkInputRing&            linkInputs() { return m_linkInputs; }
 
 		bool     booted() const { return m_schedRunnable.load(std::memory_order_acquire); }
 		void onDspBootFinished();
@@ -88,6 +91,7 @@ namespace md
 		dsp56k::Peripherals56303       m_periphX;
 		dsp56k::Memory                 m_memory;
 		dsp56k::DSP                    m_dsp;
+		LinkInputRing                  m_linkInputs;
 		dsp56k::DspBoot                m_boot;
 
 		// Published once boot state is fully initialized; acquired by the scheduler.

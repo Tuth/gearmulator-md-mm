@@ -178,9 +178,18 @@ namespace
 			state.ppc += 2;
 			require(Access::limit(*b, 1000) == 0, "nonfixed program counter accepted");
 			state.ppc = oldPpc;
-			state.m68ki_initial_cycles = 2;
-			require(Access::limit(*b, 1000) == 0, "non-single-instruction accounting accepted");
-			state.m68ki_initial_cycles = 1;
+			auto batch = cpu(pc);
+			auto& batchState = *batch->getCpuState();
+			batchState.m68ki_initial_cycles = 2;
+			batchState.m68ki_remaining_cycles = 0;
+			const auto batchLimit = Access::limit(*batch, 1000);
+			require(batchLimit > 0, "batch-exit accounting rejected");
+			Access::skip(*batch, batchLimit);
+			require(batchState.m68ki_initial_cycles == 1
+				&& batchState.m68ki_remaining_cycles == -1,
+				"idle skip did not normalize cycle accounting");
+			batchState.m68ki_remaining_cycles = 1;
+			require(Access::limit(*batch, 1000) == 0, "partial-instruction accounting accepted");
 			auto type = state.cpu_type;
 			state.cpu_type = CPU_TYPE_020;
 			require(Access::limit(*b, 1000) == 0, "legacy CPU accepted");

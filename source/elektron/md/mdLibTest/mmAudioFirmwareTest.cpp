@@ -1,9 +1,15 @@
 #include "mdLib/mdhardware.h"
 #include "mdLib/mdromloader.h"
 #include "baseLib/filesystem.h"
+#include "synthLib/realtimeInstrumentation.h"
+
+// Musashi disassembler for the --ucdis UC hot-region dump (ColdFire decoded
+// as 68020; the dasm switch has no ColdFire entry).
+#include "mc68k/Musashi/m68k.h"
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -58,9 +64,37 @@ namespace
 		std::array<DifferenceEnergy, 2> energy{};
 		std::array<double, 2> windowSum{}, windowPower{}, windowPeak{};
 		unsigned windowFrames = 0;
+
+		// Per-block wall-clock timing: is a 256-frame block rendered faster than
+		// its real-time duration (256/44100 = 5.805 ms)? Report max/avg for the
+		// steady-state render path only (boot is not representative).
+		double blockMsMax = 0, blockMsSum = 0;
+		unsigned blockMsCount = 0;
+		synthLib::RealtimeInstrumentation rtInstrumentation;
+		const bool rtEnabled = rtInstrumentation.isEnabled();
+
+		// Reset the component profile HERE so the printed attribution covers
+		// exactly this render window (64 x 256 frames), not the settle/advance
+		// time between renders.
+		hardware.resetComponentProfileMs();
+
 		for(unsigned block = 0; block < blocks; ++block)
 		{
-			hardware.processAudio(outputs, 256, 0);
+			const auto blockStart = std::chrono::steady_clock::now();
+			if(rtEnabled)
+			{
+				synthLib::RealtimeInstrumentation::CallbackScope callback(
+					rtInstrumentation, 256, md::g_samplerate);
+				callback.setHostState(true, false);
+				hardware.processAudio(outputs, 256, 0);
+			}
+			else
+				hardware.processAudio(outputs, 256, 0);
+			const auto blockEnd = std::chrono::steady_clock::now();
+			const std::chrono::duration<double, std::milli> blockMs = blockEnd - blockStart;
+			if(blockMs.count() > blockMsMax) blockMsMax = blockMs.count();
+			blockMsSum += blockMs.count();
+			++blockMsCount;
 			for(size_t channel = 0; channel < samples.size(); ++channel)
 				for(const auto sample : samples[channel])
 				{
@@ -97,6 +131,89 @@ namespace
 		{
 			const auto power = energy[0].power + energy[1].power;
 			*roughness = power > 0 ? (energy[0].difference + energy[1].difference) / power : 0;
+		}
+		if(blockMsCount)
+			std::cout << "PERF 256-frame block: avg " << blockMsSum / blockMsCount
+				<< " ms, max " << blockMsMax << " ms (realtime budget 5.805 ms)"
+				<< (blockMsMax < 5.805 ? " => REALTIME OK" : " => REALTIME MISS") << '\n';
+		if(rtEnabled)
+		{
+			const auto s = rtInstrumentation.snapshot();
+			std::cout << "RTJIT callbacks " << s.outerHostCallbackCount
+				<< " jit " << s.jitCompilationCount
+				<< " live " << s.liveJitCompilationCount
+				<< " deferred " << s.deferredCandidateJitCompilationCount
+				<< " callbacks-with-jit " << s.callbacksWithJitCompilation
+				<< " overruns " << s.outerHostCallbackOverrunCount
+				<< " max-ms " << (s.outerHostCallbackMaxNanoseconds / 1000000.0)
+				<< " max-overrun-ms "
+				<< (s.outerHostCallbackMaxOverrunNanoseconds / 1000000.0) << '\n';
+			synthLib::RealtimeSlowCallback callback;
+			unsigned printed = 0;
+			while(rtInstrumentation.popSlowCallback(callback) && printed < 8)
+			{
+				if(callback.liveJitCompilations || callback.deferredJitCompilations
+					|| (callback.budgetNanoseconds
+						&& callback.durationNanoseconds >= callback.budgetNanoseconds))
+				{
+					std::cout << "RTCALL idx " << callback.index
+						<< " dur-ms " << (callback.durationNanoseconds / 1000000.0)
+						<< " budget-ms " << (callback.budgetNanoseconds / 1000000.0)
+						<< " live-jit " << callback.liveJitCompilations
+						<< " deferred-jit " << callback.deferredJitCompilations
+						<< '\n';
+					++printed;
+				}
+			}
+		}
+
+		// Component wall-time attribution for the same window (requires
+		// GEARMULATOR_MDMM_PROFILE=1 at process start; otherwise all zero).
+		{
+			const auto p = hardware.getComponentProfileMs();
+			const auto m = hardware.getComponentProfileMaxMs();
+			std::cout << "PROFILE uc " << p.uc << " ms, dsp1 " << p.dsp1
+				<< " ms, dsp2 " << p.dsp2 << " ms, other " << p.other
+				<< " ms (total " << (p.uc + p.dsp1 + p.dsp2 + p.other) << ")"
+				<< "; max slice uc " << m.uc << " ms, dsp1 " << m.dsp1
+				<< " ms, dsp2 " << m.dsp2 << " ms"
+				<< "; uc idle-skipped instr " << hardware.getUcSkippedInstructions()
+				<< " (of ~" << (371.0 * 40000000 / 44100 / 2) << ")\n";
+		}
+
+		// Sampled UC PC histogram top entries (same window). Bucket = PC>>8.
+		{
+			const auto& hist = hardware.getUcPcHistogram();
+			const auto samples = hardware.getUcPcHistogramSamples();
+			if(samples)
+			{
+				std::vector<std::pair<uint64_t, size_t>> top;
+				for(size_t i = 0; i < hist.size(); ++i)
+					if(hist[i])
+						top.emplace_back(hist[i], i);
+				std::sort(top.begin(), top.end(),
+					[](const auto& a, const auto& b){ return a.first > b.first; });
+				std::cout << "UCHIST samples " << samples << ", top PC-buckets:";
+				for(size_t i = 0; i < top.size() && i < 10; ++i)
+					std::cout << " " << std::hex << (top[i].second << 8) << std::dec
+						<< "x:" << top[i].first;
+				std::cout << '\n';
+			}
+		}
+
+		// Component breakdown for the SAME window: emulated cycles each
+		// processor executed, and the wall time the scheduler attributed to
+		// each component's slices (sampled via transport scorecard-free
+		// deltas: cycles are exact counters, wall time comes from the
+		// scheduler instrumentation hooks). Cycle deltas discriminate
+		// "more emulated work" from "slower per-cycle execution".
+		{
+			auto& hw = hardware;
+			const auto ucCycles = hw.getUC().getCycles();
+			const auto dsp1Cycles = hw.getDspMixer().dsp().getCycles();
+			const auto dsp2Cycles = hw.getDspProducer().dsp().getCycles();
+			std::cout << "CYCLES uc=" << ucCycles << " dsp1(mixer)=" << dsp1Cycles
+				<< " dsp2(producer)=" << dsp2Cycles << '\n';
 		}
 		return std::sqrt(sum / (blocks * 256 * 2));
 	}
@@ -173,6 +290,102 @@ namespace
 		tap(hardware, md::PanelControl::Exit);
 	}
 
+	// Repeated note starts (--note-starts [trials per track]). Diagnostic for
+	// dropped note starts: every track plays GND-SIN, and each trial releases the
+	// previous note, waits a pseudo-random gap (so note-ons land at varying phases
+	// of the DSP block cycle), checks for silence, sends a note-on and looks for
+	// the note in the following window. The sequence is deterministic (fixed seed)
+	// so two builds or settings receive exactly the same MIDI at the same times.
+	// Prints per-track started/total and the failing trial numbers; exit code 0
+	// unless the machine misbehaves otherwise (silence check, rejected MIDI).
+	void testNoteStarts(md::Hardware& hardware, const unsigned _trialsTracks456)
+	{
+		std::array<std::array<float, 256>, 2> samples{};
+		synthLib::TAudioOutputs outputs{};
+		outputs[0] = samples[0].data();
+		outputs[1] = samples[1].data();
+		auto blockRms = [&]()
+		{
+			hardware.processAudio(outputs, 256, 0);
+			double sum = 0;
+			for(const auto& channel : samples)
+				for(const float v : channel)
+					sum += double(v) * v;
+			return std::sqrt(sum / 512.0);
+		};
+		auto midi = [&](const uint8_t _a, const uint8_t _b, const uint8_t _c, const char* _what)
+		{
+			require(hardware.sendMidi(synthLib::SMidiEvent(synthLib::MidiEventSource::Host, _a, _b, _c)), _what);
+		};
+
+		for(uint8_t track = 0; track < 6; ++track)
+		{
+			synthLib::SMidiEvent assign(synthLib::MidiEventSource::Host);
+			assign.sysex = {0xf0, 0, 0x20, 0x3c, 3, 0, 0x5b, track, 1, 1, 0xf7};	// GND-SIN, init pages
+			require(hardware.sendMidi(assign), "GND SIN assignment rejected");
+			advance(hardware, md::g_samplerate);
+		}
+
+		uint32_t rng = 0x9e3779b9u;
+		auto next = [&rng]() { rng = rng * 1664525u + 1013904223u; return rng >> 8; };
+
+		constexpr double onThreshold = 1e-3;	// GND-SIN tracks measure 0.015..0.14 RMS
+		constexpr double silenceThreshold = 1e-5;
+		constexpr unsigned windowBlocks = 32;	// 186 ms after the note-on
+		unsigned totalDrops456 = 0, totalTrials456 = 0, totalDrops123 = 0, totalTrials123 = 0;
+
+		for(uint8_t track = 0; track < 6; ++track)
+		{
+			const unsigned trials = track >= 3 ? _trialsTracks456 : std::max(1u, _trialsTracks456 / 3);
+			unsigned started = 0;
+			std::vector<unsigned> dropped;
+			for(unsigned trial = 0; trial < trials; ++trial)
+			{
+				midi(static_cast<uint8_t>(0x80 | track), 60, 0, "note-off rejected");
+				// Release, then a gap of 0.25 s plus 0..4095 frames.
+				advance(hardware, md::g_samplerate / 4 + (next() & 4095));
+				// Wait (bounded) for the previous note's release to finish.
+				double before = blockRms();
+				for(unsigned wait = 0; wait < 344 && before >= silenceThreshold; ++wait)	// <= 2 s
+					before = blockRms();
+				if(before >= silenceThreshold)
+				{
+					std::cout << "NOTESTARTS track " << unsigned(track + 1) << " trial " << trial
+						<< " not silent before note-on, RMS " << before << '\n';
+					require(false, "track not silent before note-on");
+				}
+				midi(static_cast<uint8_t>(0x90 | track), 60, 100, "note-on rejected");
+				double peak = 0;
+				for(unsigned b = 0; b < windowBlocks; ++b)
+					peak = std::max(peak, blockRms());
+				if(peak > onThreshold)
+					++started;
+				else
+					dropped.push_back(trial);
+				if(((trial + 1) % 25) == 0)
+					std::cout << "NOTESTARTS progress track " << unsigned(track + 1) << " trial " << trial + 1
+						<< '/' << trials << std::endl;
+			}
+			midi(static_cast<uint8_t>(0x80 | track), 60, 0, "note-off rejected");
+			advance(hardware, md::g_samplerate / 2);
+
+			std::cout << "NOTESTARTS track " << unsigned(track + 1) << " started " << started << '/' << trials
+				<< " dropped " << dropped.size();
+			if(!dropped.empty())
+			{
+				std::cout << " at trials";
+				for(const auto t : dropped)
+					std::cout << ' ' << t;
+			}
+			std::cout << std::endl;
+			(track >= 3 ? totalDrops456 : totalDrops123) += static_cast<unsigned>(dropped.size());
+			(track >= 3 ? totalTrials456 : totalTrials123) += trials;
+		}
+		std::cout << "NOTESTARTS tracks 4-6 dropped " << totalDrops456 << '/' << totalTrials456
+			<< ", tracks 1-3 dropped " << totalDrops123 << '/' << totalTrials123
+			<< ", sync edge queue overflows " << hardware.getMmSyncEdgeOverflows() << '\n';
+	}
+
 	void testAudioInput(md::Hardware& hardware)
 	{
 		const auto settle = [&](uint32_t frames) {
@@ -237,10 +450,14 @@ int main(int argc, char** argv)
 	}
 	const bool sineMidi = argc == 2 && std::string_view(argv[1]) == "--sine-midi";
 	const bool input = argc == 2 && std::string_view(argv[1]) == "--input";
+	const bool ucdis = argc == 2 && std::string_view(argv[1]) == "--ucdis";
 	const bool sine = sineMidi || (argc == 2 && std::string_view(argv[1]) == "--sine");
 	const bool ensemble = argc == 2 && std::string_view(argv[1]) == "--digipro-ensemble";
 	const bool digipro = ensemble || (argc == 2 && std::string_view(argv[1]) == "--digipro");
-	if(argc != 1 && !sine && !digipro && !input)
+	const bool noteStarts = (argc == 2 || argc == 3) && std::string_view(argv[1]) == "--note-starts";
+	const unsigned noteStartTrials = noteStarts && argc == 3
+		? static_cast<unsigned>(std::strtoul(argv[2], nullptr, 10)) : 120u;
+	if(argc != 1 && !sine && !digipro && !input && !ucdis && !noteStarts)
 		return 2;
 	const auto* path = std::getenv("GEARMULATOR_MM_FIRMWARE_BIN");
 	if(!path || !*path)
@@ -256,11 +473,100 @@ int main(int argc, char** argv)
 			"MM fixture fingerprint mismatch");
 		auto machine = std::make_unique<md::Hardware>(rom, path, md::MachineModel::Monomachine);
 		auto& hardware = *machine;
-		advance(hardware, md::g_samplerate * 20);
+
+		// Boot trace: sample the batch-gate conjunction every ~0.5 s of
+		// machine time so transient true windows (the one-shot latch bug)
+		// are visible when a batch experiment breaks the boot.
+		{
+			bool lastReady = false;
+			bool lastAudio = false;
+			for(unsigned sec = 0; sec < 20; ++sec)
+			{
+				advance(hardware, md::g_samplerate / 2);
+				const bool audio = hardware.isAudioReady();
+				const bool panel = hardware.getUC().isPanelHandshakeComplete();
+				const bool midi = hardware.getUC().isMidiReceiveReady();
+				const bool ready = audio && panel && midi;
+				if(ready != lastReady || audio != lastAudio)
+				{
+					std::cout << "BOOTTRACE t=" << (sec * 0.5) << "s audio=" << audio
+						<< " panel=" << panel << " midi=" << midi
+						<< " ready=" << ready << '\n';
+					lastReady = ready;
+					lastAudio = audio;
+				}
+				if(ready)
+				{
+					advance(hardware, md::g_samplerate * (20 - sec) - md::g_samplerate / 2);
+					break;
+				}
+			}
+		}
 		require(hardware.isAudioReady() && hardware.isFirmwareMidiReady(), "MM boot incomplete");
-		if(sine || digipro || input)
+
+		if(ucdis)
+		{
+			// Boot, run one steady render window with profiling on, then
+			// disassemble the hottest UC PC regions with the Musashi
+			// disassembler. This identifies what the ColdFire firmware
+			// executes in its non-idle-skip time on this machine.
+			hardware.resetComponentProfileMs();
+			advance(hardware, md::g_samplerate / 2);
+			const auto& hist = hardware.getUcPcHistogram();
+			const auto samples = hardware.getUcPcHistogramSamples();
+			std::vector<std::pair<uint64_t, size_t>> top;
+			for(size_t i = 0; i < hist.size(); ++i)
+				if(hist[i])
+					top.emplace_back(hist[i], i);
+			std::sort(top.begin(), top.end(),
+				[](const auto& a, const auto& b){ return a.first > b.first; });
+			std::cout << "samples " << samples << ", regions " << top.size() << '\n';
+			char buf[256];
+			// The Musashi disassembler has no ColdFire entry in its CPU-type
+			// switch (returns 0). ColdFire ISA_A is a 68k subset; the firmware's
+			// poll loops use plain 68k forms, so decode as 68020.
+			constexpr auto kDisasmCpuType = 4;	// M68K_CPU_TYPE_68020
+			for(size_t i = 0; i < top.size() && i < 12; ++i)
+			{
+				const auto pc = static_cast<uint32_t>(top[i].second) << 8;
+				std::cout << "== region 0x" << std::hex << pc << std::dec
+					<< " hits " << top[i].first << " ("
+					<< (top[i].first * 100 / samples) << "%) ==\n";
+				// Disassemble a sliding window starting slightly before the
+				// bucket so loop heads become visible.
+				auto p = pc >= 16 ? pc - 16 : pc;
+				for(int n = 0; n < 12; )
+				{
+					buf[0] = 0;
+					const auto len = m68k_disassemble(buf, p, kDisasmCpuType);
+					if(len == 0 || len > 16)
+					{
+						// ColdFire-specific or unknown word: show raw and step by 2
+						const auto op = hardware.getUC().read16(p);
+						std::cout << "  " << std::hex << p << std::dec
+							<< ": .word 0x" << std::hex << op << std::dec << '\n';
+						p += 2;
+						++n;
+						continue;
+					}
+					std::cout << "  " << std::hex << p << std::dec << ": " << buf << '\n';
+					p += len;
+					++n;
+				}
+			}
+			std::cout << "mmAudioFirmwareTest: UCDIS done\n";
+			return 0;
+		}
+
+		if(sine || digipro || input || noteStarts)
 			loadEmptyKit(hardware);
 		if(input) { testAudioInput(hardware); return 0; }
+		if(noteStarts)
+		{
+			testNoteStarts(hardware, noteStartTrials);
+			std::cout << "mmAudioFirmwareTest: NOTESTARTS done\n";
+			return 0;
+		}
 		if(sineMidi)
 		{
 			// Manufacturer manual, Appendix C: machine 01 is GND-SIN, and

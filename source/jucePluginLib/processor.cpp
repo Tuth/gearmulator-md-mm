@@ -8,6 +8,9 @@
 #include "pluginVersion.h"
 #include "tools.h"
 #include "types.h"
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
+#include "winThreadAudit.h"
+#endif
 
 #include "baseLib/binarystream.h"
 #include "baseLib/filesystem.h"
@@ -23,6 +26,7 @@
 
 #include "dsp56kBase/fastmath.h"
 #include "dsp56kBase/logging.h"
+#include "dsp56kBase/threadtools.h"
 
 #include "juceUiLib/messageBox.h"
 
@@ -54,6 +58,14 @@ namespace pluginLib
 		synthLib::RomLoader::addSearchPath(getPublicRomFolder());
 		synthLib::RomLoader::addSearchPath(synthLib::getModulePath(true));
 		synthLib::RomLoader::addSearchPath(synthLib::getModulePath(false));
+
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
+		// Opt-in per-thread CPU attribution probe (GEARMULATOR_MDMM_THREAD_AUDIT=1).
+		// Default OFF; no-op unless the host process has the env var set.
+		// Release builds compile the probe hook out entirely (STATE v42); use
+		// the diagnostics build (-Dgearmulator_DIAGNOSTICS=ON) for measurement.
+		WinThreadAudit::getInstance().start();
+#endif
 	}
 
 	Processor::~Processor()
@@ -776,7 +788,19 @@ namespace pluginLib
 	{
 	    juce::ScopedNoDenormals noDenormals;
 	    const int numSamples = buffer.getNumSamples();
-		synthLib::RealtimeInstrumentation::CallbackScope instrumentation(
+
+	    // Windows realtime optimization: raise this thread's priority for the
+	    // duration of the callback so the emulation slices are not preempted by
+	    // normal-priority host/UI work. Measured steady-state MM render runs at
+	    // 5.8-6.2 ms per 256-frame block (budget 5.805 ms) - a single preemption
+	    // or JIT-compile spike (observed 13.5 ms) breaks the ASIO deadline and
+	    // the driver plays silence. The priority is per-thread; the host resets
+	    // nothing and other threads are unaffected. On macOS this maps to QOS
+	    // user-interactive + time constraints, i.e. the audio-callback standard.
+	    (void)dsp56k::ThreadTools::setCurrentThreadPriority(
+	        dsp56k::ThreadPriority::Highest);
+
+	    synthLib::RealtimeInstrumentation::CallbackScope instrumentation(
 			getPlugin().getRealtimeInstrumentation(), static_cast<size_t>(numSamples),
 			getSampleRate());
 
