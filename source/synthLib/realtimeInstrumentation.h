@@ -26,10 +26,17 @@ namespace synthLib
 		uint64_t synthNanoseconds = 0, lockWaitNanoseconds = 0;
 		uint64_t resamplerNanoseconds = 0, deviceNanoseconds = 0;
 		uint64_t deferredNanoseconds = 0, liveJitCompilations = 0, deferredJitCompilations = 0;
+		uint64_t mcuSliceNanoseconds = 0;
+		uint64_t dsp1SliceNanoseconds = 0;
+		uint64_t dsp2SliceNanoseconds = 0;
+		uint64_t liveJitNanoseconds = 0;
+		uint64_t deferredJitNanoseconds = 0;
+		uint64_t maxJitCompilationBatchNanoseconds = 0;
 		uint32_t frames = 0, outputBuses = 0, outputChannels = 0;
 		uint32_t midiEvents = 0, midiBytes = 0, deviceSampleRate = 0;
 		uint32_t resamplerMode = 0, dspClockPercent = 100;
 		double sampleRate = 0;
+		bool componentTimingSampled = false;
 		bool bypassed = false, playing = false, offline = false;
 		bool resamplingActive = false, dualMachine = false;
 	};
@@ -37,6 +44,14 @@ namespace synthLib
 	struct RealtimeInstrumentationSnapshot
 	{
 		bool enabled = false;
+		uint64_t componentSampledCallbackCount = 0, componentSampledCallbackNanoseconds = 0;
+		uint64_t mcuSliceNanoseconds = 0;
+		uint64_t dsp1SliceNanoseconds = 0;
+		uint64_t dsp2SliceNanoseconds = 0;
+		uint64_t liveJitNanoseconds = 0;
+		uint64_t deferredJitNanoseconds = 0;
+		uint64_t maxJitCompilationBatchNanoseconds = 0;
+
 		uint64_t offlineCallbackCount = 0;
 		uint64_t slowCallbacksDropped = 0;
 		uint64_t timelineEvents = 0, timelineEventsDropped = 0;
@@ -130,6 +145,24 @@ namespace synthLib
 			bool m_previousCandidateRole = false;
 		};
 
+		// Exclusive wall time in scheduler/inline catch-up scopes. Nested DSP work
+		// is subtracted from the enclosing MCU or DSP bucket; JIT time is a subset.
+		static constexpr uint32_t ComponentSamplingPeriod = 16;
+		enum class Component : uint32_t { None, Mcu, Dsp1, Dsp2 };
+		class ComponentScope final
+		{
+		public:
+			explicit ComponentScope(Component _component) noexcept;
+			~ComponentScope();
+			ComponentScope(const ComponentScope&) = delete;
+			ComponentScope& operator=(const ComponentScope&) = delete;
+		private:
+			bool m_active = false;
+			Component m_previous = Component::None;
+		};
+		static uint64_t beginCurrentJitTiming() noexcept;
+		static void endCurrentJitTiming(uint64_t _start) noexcept;
+
 		RealtimeInstrumentation() noexcept;
 
 		void setEnabled(bool _enabled) noexcept;
@@ -220,6 +253,14 @@ namespace synthLib
 		std::atomic<uint64_t> m_resamplingActiveCallbackCount{0};
 		std::atomic<uint64_t> m_deviceProcessNanoseconds{0};
 		std::atomic<uint64_t> m_deviceProcessMaxNanoseconds{0};
+		std::atomic<uint64_t> m_componentSampleSequence{0};
+		std::atomic<uint64_t> m_componentSampledCallbackCount{0}, m_componentSampledCallbackNanoseconds{0};
+		std::atomic<uint64_t> m_mcuSliceNanoseconds{0};
+		std::atomic<uint64_t> m_dsp1SliceNanoseconds{0};
+		std::atomic<uint64_t> m_dsp2SliceNanoseconds{0};
+		std::atomic<uint64_t> m_liveJitNanoseconds{0};
+		std::atomic<uint64_t> m_deferredJitNanoseconds{0};
+		std::atomic<uint64_t> m_maxJitCompilationBatchNanoseconds{0};
 		std::atomic<uint64_t> m_jitCompilationCount{0};
 		std::atomic<uint64_t> m_liveJitCompilationCount{0};
 		std::atomic<uint64_t> m_deferredCandidateJitCompilationCount{0};

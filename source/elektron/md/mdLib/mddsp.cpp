@@ -140,6 +140,10 @@ namespace md
 		config.enableOptimizer = true;
 #endif
 		const auto* const jitTracePtr = &m_dsp.getJit();
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
+		config.beginCompilationTiming = &synthLib::RealtimeInstrumentation::beginCurrentJitTiming;
+		config.endCompilationTiming = &synthLib::RealtimeInstrumentation::endCurrentJitTiming;
+#endif
 		config.getBlockConfig = [dspIndex = m_index, jitTracePtr](const dsp56k::TWord _pc)
 			-> std::optional<dsp56k::JitConfig>
 		{

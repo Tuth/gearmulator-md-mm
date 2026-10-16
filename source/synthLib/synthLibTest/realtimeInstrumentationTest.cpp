@@ -1,5 +1,6 @@
 #include "synthLib/realtimeInstrumentation.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <chrono>
 #include <thread>
@@ -100,7 +101,56 @@ int main()
 		&& snapshot.resamplingActiveCallbackCount == 1,
 		"resampler/device work totals are wrong");
 
+	// Nested components partition callback wall time. Nested compilation batches
+	// must not double-count children, and deferred work has its own bucket.
+	using RI = synthLib::RealtimeInstrumentation;
 	instrumentation.reset();
+	{
+		RI::CallbackScope callback(instrumentation, 64, 48000);
+		RI::ComponentScope mcu(RI::Component::Mcu);
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		{
+			RI::ComponentScope dsp(RI::Component::Dsp1);
+			const auto parent = RI::beginCurrentJitTiming();
+			const auto child = RI::beginCurrentJitTiming();
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			RI::endCurrentJitTiming(child);
+			RI::endCurrentJitTiming(parent);
+			RI::DeferredCandidateScope candidate(64);
+			RI::ComponentScope dsp2(RI::Component::Dsp2);
+			const auto deferred = RI::beginCurrentJitTiming();
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			RI::endCurrentJitTiming(deferred);
+		}
+	}
+	const auto timed = instrumentation.snapshot();
+	require(timed.mcuSliceNanoseconds > 0 && timed.dsp1SliceNanoseconds > 0
+		&& timed.dsp2SliceNanoseconds > 0, "nested component bucket missing");
+	require(timed.mcuSliceNanoseconds + timed.dsp1SliceNanoseconds + timed.dsp2SliceNanoseconds
+		<= timed.outerHostCallbackNanoseconds, "nested component time double-counted");
+	require(timed.liveJitNanoseconds > 0 && timed.liveJitNanoseconds <= timed.dsp1SliceNanoseconds
+		&& timed.deferredJitNanoseconds > 0 && timed.deferredJitNanoseconds <= timed.dsp2SliceNanoseconds
+		&& timed.maxJitCompilationBatchNanoseconds <= std::max(timed.liveJitNanoseconds, timed.deferredJitNanoseconds),
+		"JIT nesting or candidate timing attribution wrong");
+	require(RI::beginCurrentJitTiming() == 0, "JIT timing outside callback was active");
+	{
+		RI::CallbackScope callback(instrumentation, 64, 48000);
+		RI::ComponentScope scope(RI::Component::Dsp1);
+		const auto jit = RI::beginCurrentJitTiming();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		RI::endCurrentJitTiming(jit);
+	}
+	const auto unsampled = instrumentation.snapshot();
+	require(unsampled.componentSampledCallbackCount == 1
+		&& unsampled.mcuSliceNanoseconds == timed.mcuSliceNanoseconds
+		&& unsampled.dsp1SliceNanoseconds == timed.dsp1SliceNanoseconds
+		&& unsampled.dsp2SliceNanoseconds == timed.dsp2SliceNanoseconds
+		&& unsampled.liveJitNanoseconds > timed.liveJitNanoseconds,
+		"component sampling skipped JIT timing or recorded an unsampled component");
+	instrumentation.reset();
+	require(instrumentation.snapshot().liveJitNanoseconds == 0
+		&& instrumentation.snapshot().mcuSliceNanoseconds == 0,
+		"reset did not clear new timings");
 	require(instrumentation.snapshot().outerHostCallbackCount == 0,
 		"reset did not clear counters");
 	std::cout << "synthLib realtime instrumentation: PASS\n";

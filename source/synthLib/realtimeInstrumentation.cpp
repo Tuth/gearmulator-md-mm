@@ -1,5 +1,6 @@
 #include "realtimeInstrumentation.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -31,6 +32,9 @@ namespace
 		synthLib::RealtimeSlowCallback callback;
 		bool dualMachine = false;
 		bool candidateRole = false;
+		uint32_t jitTimingDepth = 0;
+		synthLib::RealtimeInstrumentation::Component component = synthLib::RealtimeInstrumentation::Component::None;
+		uint64_t componentStart = 0;
 	};
 
 	thread_local CallbackContext g_callbackContext;
@@ -89,6 +93,15 @@ namespace synthLib
 		m_resamplingActiveCallbackCount.store(0, std::memory_order_relaxed);
 		m_deviceProcessNanoseconds.store(0, std::memory_order_relaxed);
 		m_deviceProcessMaxNanoseconds.store(0, std::memory_order_relaxed);
+		m_componentSampleSequence.store(0, std::memory_order_relaxed);
+		m_componentSampledCallbackCount.store(0, std::memory_order_relaxed);
+		m_componentSampledCallbackNanoseconds.store(0, std::memory_order_relaxed);
+		m_mcuSliceNanoseconds.store(0, std::memory_order_relaxed);
+		m_dsp1SliceNanoseconds.store(0, std::memory_order_relaxed);
+		m_dsp2SliceNanoseconds.store(0, std::memory_order_relaxed);
+		m_liveJitNanoseconds.store(0, std::memory_order_relaxed);
+		m_deferredJitNanoseconds.store(0, std::memory_order_relaxed);
+		m_maxJitCompilationBatchNanoseconds.store(0, std::memory_order_relaxed);
 		m_jitCompilationCount.store(0, std::memory_order_relaxed);
 		m_liveJitCompilationCount.store(0, std::memory_order_relaxed);
 		m_deferredCandidateJitCompilationCount.store(0, std::memory_order_relaxed);
@@ -133,6 +146,14 @@ namespace synthLib
 		result.resamplingActiveCallbackCount = m_resamplingActiveCallbackCount.load(std::memory_order_relaxed);
 		result.deviceProcessNanoseconds = m_deviceProcessNanoseconds.load(std::memory_order_relaxed);
 		result.deviceProcessMaxNanoseconds = m_deviceProcessMaxNanoseconds.load(std::memory_order_relaxed);
+		result.componentSampledCallbackCount = m_componentSampledCallbackCount.load(std::memory_order_relaxed);
+		result.componentSampledCallbackNanoseconds = m_componentSampledCallbackNanoseconds.load(std::memory_order_relaxed);
+		result.mcuSliceNanoseconds = m_mcuSliceNanoseconds.load(std::memory_order_relaxed);
+		result.dsp1SliceNanoseconds = m_dsp1SliceNanoseconds.load(std::memory_order_relaxed);
+		result.dsp2SliceNanoseconds = m_dsp2SliceNanoseconds.load(std::memory_order_relaxed);
+		result.liveJitNanoseconds = m_liveJitNanoseconds.load(std::memory_order_relaxed);
+		result.deferredJitNanoseconds = m_deferredJitNanoseconds.load(std::memory_order_relaxed);
+		result.maxJitCompilationBatchNanoseconds = m_maxJitCompilationBatchNanoseconds.load(std::memory_order_relaxed);
 		result.jitCompilationCount = m_jitCompilationCount.load(std::memory_order_relaxed);
 		result.liveJitCompilationCount = m_liveJitCompilationCount.load(std::memory_order_relaxed);
 		result.deferredCandidateJitCompilationCount = m_deferredCandidateJitCompilationCount.load(std::memory_order_relaxed);
@@ -165,6 +186,8 @@ namespace synthLib
 		m_sampleRate = std::isfinite(_sampleRate) && _sampleRate > 0.0 ? _sampleRate : 0;
 		g_callbackContext = {};
 		g_callbackContext.owner = &_owner;
+		g_callbackContext.callback.componentTimingSampled =
+			_owner.m_componentSampleSequence.fetch_add(1, std::memory_order_relaxed) % ComponentSamplingPeriod == 0;
 	}
 
 	RealtimeInstrumentation::CallbackScope::~CallbackScope()
@@ -221,6 +244,17 @@ namespace synthLib
 
 	void RealtimeInstrumentation::recordHostCallback(RealtimeSlowCallback _callback) noexcept
 	{
+		if(_callback.componentTimingSampled)
+		{
+			m_componentSampledCallbackCount.fetch_add(1, std::memory_order_relaxed);
+			m_componentSampledCallbackNanoseconds.fetch_add(_callback.durationNanoseconds, std::memory_order_relaxed);
+		}
+		m_mcuSliceNanoseconds.fetch_add(_callback.mcuSliceNanoseconds, std::memory_order_relaxed);
+		m_dsp1SliceNanoseconds.fetch_add(_callback.dsp1SliceNanoseconds, std::memory_order_relaxed);
+		m_dsp2SliceNanoseconds.fetch_add(_callback.dsp2SliceNanoseconds, std::memory_order_relaxed);
+		m_liveJitNanoseconds.fetch_add(_callback.liveJitNanoseconds, std::memory_order_relaxed);
+		m_deferredJitNanoseconds.fetch_add(_callback.deferredJitNanoseconds, std::memory_order_relaxed);
+		updateMaximum(m_maxJitCompilationBatchNanoseconds, _callback.maxJitCompilationBatchNanoseconds);
 		_callback.index = m_outerHostCallbackCount.fetch_add(1, std::memory_order_relaxed) + 1;
 		m_outerHostCallbackNanoseconds.fetch_add(_callback.durationNanoseconds, std::memory_order_relaxed);
 		updateMaximum(m_outerHostCallbackMaxNanoseconds, _callback.durationNanoseconds);
@@ -256,6 +290,7 @@ namespace synthLib
 		// Include occasional ordinary callbacks for workload context. Trace near
 		// deadlines, significant waits, compilation and dual-machine processing.
 		const bool interesting = _callback.index == 1 || _callback.index % 1024 == 0
+			|| _callback.componentTimingSampled
 			|| (!_callback.offline && _callback.budgetNanoseconds > 0
 				&& _callback.durationNanoseconds >= _callback.budgetNanoseconds * 3 / 4)
 			|| _callback.lockWaitNanoseconds >= 100'000 || _callback.dualMachine
@@ -440,6 +475,59 @@ namespace synthLib
 		updateMaximum(m_deviceProcessMaxNanoseconds, _deviceNanoseconds);
 		if(_resamplingActive)
 			m_resamplingActiveCallbackCount.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	uint64_t RealtimeInstrumentation::beginCurrentJitTiming() noexcept
+	{
+		if(!g_callbackContext.owner || !g_callbackContext.owner->isEnabled()) return 0;
+		++g_callbackContext.jitTimingDepth;
+		return nowNanoseconds();
+	}
+
+	void RealtimeInstrumentation::endCurrentJitTiming(const uint64_t _start) noexcept
+	{
+		if(!_start || !g_callbackContext.owner || !g_callbackContext.jitTimingDepth) return;
+		// A parent emit includes recursive child generation. Count the outermost
+		// compilation batch only, so nested time is never added twice.
+		if(--g_callbackContext.jitTimingDepth) return;
+		const auto elapsed = nowNanoseconds() - _start;
+		auto& c = g_callbackContext.callback;
+		(g_callbackContext.candidateRole ? c.deferredJitNanoseconds : c.liveJitNanoseconds) += elapsed;
+		c.maxJitCompilationBatchNanoseconds = std::max(c.maxJitCompilationBatchNanoseconds, elapsed);
+	}
+
+	namespace
+	{
+		void accountComponent(const uint64_t now) noexcept
+		{
+			auto& c = g_callbackContext.callback;
+			const auto elapsed = now - g_callbackContext.componentStart;
+			switch(g_callbackContext.component)
+			{
+			case RealtimeInstrumentation::Component::Mcu: c.mcuSliceNanoseconds += elapsed; break;
+			case RealtimeInstrumentation::Component::Dsp1: c.dsp1SliceNanoseconds += elapsed; break;
+			case RealtimeInstrumentation::Component::Dsp2: c.dsp2SliceNanoseconds += elapsed; break;
+			default: break;
+			}
+			g_callbackContext.componentStart = now;
+		}
+	}
+
+	RealtimeInstrumentation::ComponentScope::ComponentScope(const Component _component) noexcept
+	{
+		if(!g_callbackContext.owner || !g_callbackContext.callback.componentTimingSampled
+			|| !g_callbackContext.owner->isEnabled()) return;
+		m_active = true;
+		m_previous = g_callbackContext.component;
+		accountComponent(nowNanoseconds());
+		g_callbackContext.component = _component;
+	}
+
+	RealtimeInstrumentation::ComponentScope::~ComponentScope()
+	{
+		if(!m_active) return;
+		accountComponent(nowNanoseconds());
+		g_callbackContext.component = m_previous;
 	}
 
 	void RealtimeInstrumentation::recordCurrentCallbackJitCompilation() noexcept

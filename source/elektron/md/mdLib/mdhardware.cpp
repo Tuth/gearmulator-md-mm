@@ -28,6 +28,12 @@
 #define MD_TRANSPORT_RECORD(...) do {} while(false)
 #endif
 
+#if GEARMULATOR_DIAGNOSTIC_LOGGING
+#define MD_COMPONENT_SCOPE(component) synthLib::RealtimeInstrumentation::ComponentScope componentScope(component)
+#else
+#define MD_COMPONENT_SCOPE(component) do {} while(false)
+#endif
+
 namespace md
 {
 	// The current 40 MHz ColdFire clock is consistent with the firmware's timer
@@ -1492,6 +1498,7 @@ namespace md
 			return false;					// everything has reached the shared clock
 		}
 
+		MD_COMPONENT_SCOPE(static_cast<synthLib::RealtimeInstrumentation::Component>(who + 1));
 		const double subTarget = std::min(minPos + quantumFrames, target);
 
 		if(who == 0)
@@ -1671,6 +1678,8 @@ namespace md
 
 	void Hardware::schedCatchUpDsp(const uint32_t _dspIndex)
 	{
+		MD_COMPONENT_SCOPE(_dspIndex == 0 ? synthLib::RealtimeInstrumentation::Component::Dsp1
+			: synthLib::RealtimeInstrumentation::Component::Dsp2);
 		// Run the target DSP inline up to the UC's current machine time
 		// (the caller's point in the boot handshake) before a host access. This is what advances the
 		// DSP in fine lockstep with the UC's poll loops, so the UC's ISR/reply polls converge instead
@@ -1751,6 +1760,8 @@ namespace md
 
 	void Hardware::schedCatchUpDspToDsp(const uint32_t _consumer, const uint32_t _producer)
 	{
+		MD_COMPONENT_SCOPE(_consumer == 0 ? synthLib::RealtimeInstrumentation::Component::Dsp1
+			: synthLib::RealtimeInstrumentation::Component::Dsp2);
 		// Before a producer DSP enqueues a link frame into the ESSI route,
 		// consumer DSP's input ring, advance the CONSUMER to the producer's current machine time - so a
 		// frame is never consumed "before" (in DSP-time) it was produced, nor an arbitrary quantum

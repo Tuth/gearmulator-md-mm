@@ -1,0 +1,963 @@
+{
+  "schema": "mdmm-capture-analysis-v1",
+  "captureSha256": "cd21e475c3666b64ae6506bbb5a4910bac1a6bbfa881044afafe268ccd1f1b43",
+  "session": {
+    "type": "session",
+    "schema": 3,
+    "duration_unit": "ns",
+    "product": "MD/MM headless core",
+    "model": "md",
+    "component_timing_available": "true",
+    "component_timing_period": "16"
+  },
+  "records": {
+    "session": 1,
+    "summary": 51,
+    "callback": 568,
+    "event": 80
+  },
+  "captureSeconds": 2.517406565,
+  "callbackCount": 993,
+  "traceComplete": false,
+  "traceSummaryConsistency": {
+    "durationNanoseconds": null,
+    "synthNanoseconds": null,
+    "resamplerNanoseconds": null,
+    "deviceNanoseconds": null,
+    "lockWaitNanoseconds": null,
+    "mcuSliceNanoseconds": null,
+    "dsp1SliceNanoseconds": null,
+    "dsp2SliceNanoseconds": null,
+    "liveJitNanoseconds": null,
+    "deferredJitNanoseconds": null,
+    "maxJitCompilationBatchNanoseconds": null,
+    "componentSampledCallbackCount": null,
+    "componentSampledCallbackNanoseconds": null
+  },
+  "endReason": null,
+  "settings": {
+    "frames": [
+      128
+    ],
+    "sampleRate": [
+      44100
+    ],
+    "deviceSampleRate": [
+      44100
+    ],
+    "resamplerMode": [
+      0
+    ],
+    "dspClockPercent": [
+      100
+    ],
+    "outputBuses": [
+      3
+    ],
+    "outputChannels": [
+      6
+    ],
+    "offline": [
+      false
+    ],
+    "bypassed": [
+      false
+    ]
+  },
+  "wallMilliseconds": {
+    "durationNanoseconds": {
+      "mean": 2.869799753521127,
+      "p50": 2.4969409999999996,
+      "p99": 7.505093,
+      "maximum": 45.976602
+    },
+    "deviceNanoseconds": {
+      "mean": 0.0,
+      "p50": 0.0,
+      "p99": 0.0,
+      "maximum": 0.0
+    },
+    "lockWaitNanoseconds": {
+      "mean": 0.0,
+      "p50": 0.0,
+      "p99": 0.0,
+      "maximum": 0.0
+    }
+  },
+  "callbackTimeSplitPercent": {
+    "device": 0.0,
+    "resamplerAndDispatchOverhead": 0.0,
+    "remainder": 100.0
+  },
+  "estimatedOverruns": 140,
+  "realtimeBudgetHistogram": [
+    0,
+    0,
+    426,
+    427,
+    118,
+    22
+  ],
+  "jitCompilations": 664,
+  "dualMachineCallbacks": 0,
+  "droppedCallbacks": 0,
+  "droppedEvents": 0,
+  "totalLockWaitMilliseconds": 0.0,
+  "notes": "Inclusive wall timings. Device share is not an MCU/DSP CPU attribution. Complete trace required for population percentiles.",
+  "diagnosticWallMilliseconds": {
+    "mcuSliceNanoseconds": 30.339099,
+    "dsp1SliceNanoseconds": 85.043682,
+    "dsp2SliceNanoseconds": 64.905165,
+    "liveJitNanoseconds": 53.474641,
+    "deferredJitNanoseconds": 0.0
+  },
+  "maxJitCompilationBatchMilliseconds": 1.400965,
+  "componentSampledCallbacks": 63,
+  "componentSampledCallbackMilliseconds": 180.586054,
+  "componentTimingAvailable": true,
+  "componentTraceComplete": true,
+  "jitTraceComplete": true,
+  "jitOverrunCallbacks": [
+    {
+      "index": 93,
+      "durationMs": 9.768088,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 396,
+      "durationMs": 3.037747,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 397,
+      "durationMs": 2.934365,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 401,
+      "durationMs": 3.085138,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 403,
+      "durationMs": 3.080241,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 408,
+      "durationMs": 3.019751,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 409,
+      "durationMs": 3.647777,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 410,
+      "durationMs": 6.907953,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 412,
+      "durationMs": 4.745655,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 413,
+      "durationMs": 4.296854,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 414,
+      "durationMs": 4.216265,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 416,
+      "durationMs": 4.279007,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 417,
+      "durationMs": 7.505093,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 420,
+      "durationMs": 5.157773,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 426,
+      "durationMs": 3.408634,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 447,
+      "durationMs": 3.714636,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 448,
+      "durationMs": 4.478412,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 449,
+      "durationMs": 6.399062,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 450,
+      "durationMs": 2.993642,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 451,
+      "durationMs": 4.111831,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 452,
+      "durationMs": 3.991113,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 453,
+      "durationMs": 3.434653,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 454,
+      "durationMs": 3.530995,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 455,
+      "durationMs": 3.129863,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 457,
+      "durationMs": 3.66298,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 464,
+      "durationMs": 3.499268,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 473,
+      "durationMs": 3.285793,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 475,
+      "durationMs": 2.968466,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 477,
+      "durationMs": 3.487701,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 482,
+      "durationMs": 3.901341,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 483,
+      "durationMs": 4.081527,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 485,
+      "durationMs": 4.306848,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 487,
+      "durationMs": 4.230826,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 518,
+      "durationMs": 45.976602,
+      "liveJitMs": 31.755381,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 519,
+      "durationMs": 16.253137,
+      "liveJitMs": 9.931829,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 520,
+      "durationMs": 14.380708,
+      "liveJitMs": 6.800996,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 521,
+      "durationMs": 7.487687,
+      "liveJitMs": 2.02155,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 525,
+      "durationMs": 3.089374,
+      "liveJitMs": 0.357025,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 526,
+      "durationMs": 3.845439,
+      "liveJitMs": 0.487587,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 527,
+      "durationMs": 4.157588,
+      "liveJitMs": 0.097183,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 528,
+      "durationMs": 3.869084,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 529,
+      "durationMs": 7.857873,
+      "liveJitMs": 0.084825,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 530,
+      "durationMs": 3.487781,
+      "liveJitMs": 0.117284,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 531,
+      "durationMs": 3.096134,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 532,
+      "durationMs": 3.22915,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 533,
+      "durationMs": 3.412991,
+      "liveJitMs": 0.069843,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 534,
+      "durationMs": 3.248829,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 535,
+      "durationMs": 3.557695,
+      "liveJitMs": 0.218162,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 536,
+      "durationMs": 3.24988,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 541,
+      "durationMs": 3.13414,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 542,
+      "durationMs": 5.215318,
+      "liveJitMs": 0.044996,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 598,
+      "durationMs": 3.264532,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 605,
+      "durationMs": 4.429148,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 619,
+      "durationMs": 3.109614,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 622,
+      "durationMs": 4.171229,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 690,
+      "durationMs": 3.194669,
+      "liveJitMs": 0.131174,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 691,
+      "durationMs": 3.383387,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 693,
+      "durationMs": 3.425039,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 694,
+      "durationMs": 2.951991,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 695,
+      "durationMs": 3.250161,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 696,
+      "durationMs": 3.206316,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 698,
+      "durationMs": 2.924451,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 699,
+      "durationMs": 4.339377,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 700,
+      "durationMs": 2.944411,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 701,
+      "durationMs": 3.013882,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 706,
+      "durationMs": 5.299362,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 712,
+      "durationMs": 3.000393,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 768,
+      "durationMs": 6.026114,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 769,
+      "durationMs": 6.1804,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 770,
+      "durationMs": 3.339572,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 771,
+      "durationMs": 7.505263,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 772,
+      "durationMs": 5.106517,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 773,
+      "durationMs": 4.60645,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 774,
+      "durationMs": 2.976567,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 777,
+      "durationMs": 3.000042,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 802,
+      "durationMs": 2.924562,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 825,
+      "durationMs": 3.293075,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 828,
+      "durationMs": 2.942056,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 829,
+      "durationMs": 3.130885,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 830,
+      "durationMs": 3.071407,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 831,
+      "durationMs": 3.411429,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 832,
+      "durationMs": 3.295067,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 833,
+      "durationMs": 3.435934,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 834,
+      "durationMs": 3.434974,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 835,
+      "durationMs": 3.056134,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 836,
+      "durationMs": 3.019561,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 837,
+      "durationMs": 3.549923,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 838,
+      "durationMs": 3.192166,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 839,
+      "durationMs": 3.361985,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 840,
+      "durationMs": 3.404238,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 841,
+      "durationMs": 3.056866,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 842,
+      "durationMs": 3.004709,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 843,
+      "durationMs": 3.559677,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 844,
+      "durationMs": 3.006152,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 845,
+      "durationMs": 3.031329,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 846,
+      "durationMs": 3.67694,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 847,
+      "durationMs": 3.027823,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 848,
+      "durationMs": 2.987614,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 849,
+      "durationMs": 3.802505,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 850,
+      "durationMs": 3.062224,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 851,
+      "durationMs": 3.037307,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 852,
+      "durationMs": 3.404919,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 853,
+      "durationMs": 3.366252,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 854,
+      "durationMs": 2.989767,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 855,
+      "durationMs": 3.408504,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 856,
+      "durationMs": 3.027632,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 857,
+      "durationMs": 3.034913,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 858,
+      "durationMs": 3.54831,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 859,
+      "durationMs": 3.026211,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 860,
+      "durationMs": 3.420232,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 861,
+      "durationMs": 3.411608,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 862,
+      "durationMs": 3.053191,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 863,
+      "durationMs": 4.227482,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 864,
+      "durationMs": 4.101786,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 865,
+      "durationMs": 4.471061,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 866,
+      "durationMs": 4.079163,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 867,
+      "durationMs": 4.364554,
+      "liveJitMs": 0.125042,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 868,
+      "durationMs": 3.942241,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 869,
+      "durationMs": 3.974829,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 870,
+      "durationMs": 4.145551,
+      "liveJitMs": 0.060088,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 871,
+      "durationMs": 4.115316,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 872,
+      "durationMs": 3.951635,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 873,
+      "durationMs": 3.56841,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 874,
+      "durationMs": 3.294656,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 875,
+      "durationMs": 3.043316,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 876,
+      "durationMs": 3.388074,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 877,
+      "durationMs": 3.007623,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 878,
+      "durationMs": 3.035114,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 879,
+      "durationMs": 3.521321,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 880,
+      "durationMs": 3.162732,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 881,
+      "durationMs": 3.830115,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 882,
+      "durationMs": 3.535291,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 883,
+      "durationMs": 3.177533,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 884,
+      "durationMs": 3.078278,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 885,
+      "durationMs": 3.537664,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 886,
+      "durationMs": 3.377789,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 887,
+      "durationMs": 3.236702,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 888,
+      "durationMs": 3.747975,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 945,
+      "durationMs": 3.007262,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    },
+    {
+      "index": 984,
+      "durationMs": 3.002696,
+      "liveJitMs": 0.0,
+      "deferredJitMs": 0.0
+    }
+  ],
+  "validationScope": "Linux headless synthetic MD, diagnostics ON, not Windows host or CPU samples"
+}

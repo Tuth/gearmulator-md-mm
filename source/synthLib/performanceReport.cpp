@@ -66,7 +66,7 @@ namespace synthLib
 
 	std::string PerformanceReport::formatContext(const Context& _context)
 	{
-		std::string out = "{\"type\":\"session\",\"schema\":2,\"duration_unit\":\"ns\"";
+		std::string out = "{\"type\":\"session\",\"schema\":3,\"duration_unit\":\"ns\"";
 		for(const auto& field : _context) out += ',' + quote(field.first) + ':' + quote(field.second);
 		return out + "}\n";
 	}
@@ -85,6 +85,13 @@ namespace synthLib
 		FIELD(synthProcessLockWaitMaxNanoseconds); FIELD(resamplerCallCount);
 		FIELD(resamplerNanoseconds); FIELD(resamplerMaxNanoseconds); FIELD(resamplerHostFrames);
 		FIELD(resamplingActiveCallbackCount); FIELD(deviceProcessNanoseconds); FIELD(deviceProcessMaxNanoseconds);
+		FIELD(mcuSliceNanoseconds);
+		FIELD(dsp1SliceNanoseconds);
+		FIELD(dsp2SliceNanoseconds);
+		FIELD(liveJitNanoseconds);
+		FIELD(deferredJitNanoseconds);
+		FIELD(maxJitCompilationBatchNanoseconds);
+		FIELD(componentSampledCallbackCount); FIELD(componentSampledCallbackNanoseconds);
 		FIELD(jitCompilationCount); FIELD(liveJitCompilationCount); FIELD(deferredCandidateJitCompilationCount);
 		FIELD(callbacksWithJitCompilation); FIELD(deferredDualMachineCallbackCount);
 		FIELD(deferredCandidateAdvanceCount); FIELD(deferredCandidateFrames);
@@ -108,11 +115,17 @@ namespace synthLib
 		FIELD(index); FIELD(startNanoseconds); FIELD(durationNanoseconds); FIELD(budgetNanoseconds);
 		FIELD(interCallbackNanoseconds); FIELD(synthNanoseconds); FIELD(lockWaitNanoseconds);
 		FIELD(resamplerNanoseconds); FIELD(deviceNanoseconds); FIELD(deferredNanoseconds);
+		FIELD(mcuSliceNanoseconds);
+		FIELD(dsp1SliceNanoseconds);
+		FIELD(dsp2SliceNanoseconds);
+		FIELD(liveJitNanoseconds);
+		FIELD(deferredJitNanoseconds);
+		FIELD(maxJitCompilationBatchNanoseconds);
 		FIELD(liveJitCompilations); FIELD(deferredJitCompilations); FIELD(frames); FIELD(sampleRate);
 		FIELD(deviceSampleRate); FIELD(resamplerMode); FIELD(dspClockPercent);
 		FIELD(outputBuses); FIELD(outputChannels); FIELD(midiEvents); FIELD(midiBytes);
 		out << std::boolalpha;
-		FIELD(bypassed); FIELD(playing); FIELD(offline); FIELD(resamplingActive); FIELD(dualMachine);
+		FIELD(componentTimingSampled); FIELD(bypassed); FIELD(playing); FIELD(offline); FIELD(resamplingActive); FIELD(dualMachine);
 #undef FIELD
 		return out.str() + "}\n";
 	}

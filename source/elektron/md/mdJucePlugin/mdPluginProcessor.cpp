@@ -508,7 +508,9 @@ namespace mdJucePlugin
 #endif
 			{"pointer_bits", std::to_string(sizeof(void*) * 8)},
 			{"resampler_modes", "0=Legacy,1=MameHq,2=MameLofi"},
-			{"notes", "Nested timings are inclusive. JIT values are counts, not compilation durations. Deadline overruns are estimates, not host xrun reports. MIDI counts contain no payload."}
+			{"component_timing_available", GEARMULATOR_DIAGNOSTIC_LOGGING ? "true" : "false"},
+			{"component_timing_period", std::to_string(synthLib::RealtimeInstrumentation::ComponentSamplingPeriod)},
+			{"notes", "Wall times, not CPU times. MCU/DSP slice times cover sampled callbacks only and exclude nested components. JIT durations are inclusive outermost compilation batches and overlap component times. Diagnostic clocks add overhead. Deadline overruns are estimates, not host xruns. MIDI counts contain no payload."}
 		};
 		m_performanceReport->start(m_performanceReportFile.getFullPathName().toStdString(), std::move(context));
 	}
