@@ -1,0 +1,389 @@
+{
+  "controlSha256": "0bf2ad3dddc92920505038c9ea25f46edec7b504924e80463fa378e19db6f2a5",
+  "candidateSha256": "def92277d2727dccd0c2a1e6ede3dbed2287336a5c725e0684650ff54555e8d7",
+  "firmwareSha1": "11a37460a5f47fd1a4d911414288690e6e7da605",
+  "model": "mm",
+  "secondsPerPhase": 3,
+  "repeats": 3,
+  "cpuAffinity": 2,
+  "runs": [
+    {
+      "run": "1-control",
+      "kind": "control",
+      "pcmSha256": "57f42ce7ceec413c982cf85b18ac93f4d6e928d009bccf09deeefccbd6d006af",
+      "phases": [
+        {
+          "model": "mm",
+          "phase": 0,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.64965,
+          "renderCpuSeconds": 2.65059,
+          "p50us": 2451.3,
+          "p99us": 3965.31,
+          "rms": 0,
+          "pcmFnv64": "517c05a6d99f8325",
+          "dsp1Cycles": 574387935,
+          "dsp2Cycles": 574406231,
+          "dsp1Pc": 1276,
+          "dsp2Pc": 1048936
+        },
+        {
+          "model": "mm",
+          "phase": 1,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.84146,
+          "renderCpuSeconds": 2.84246,
+          "p50us": 2451.38,
+          "p99us": 6313.62,
+          "rms": 0.06355,
+          "pcmFnv64": "8ee34984ac6c7366",
+          "dsp1Cycles": 879637504,
+          "dsp2Cycles": 879655874,
+          "dsp1Pc": 919,
+          "dsp2Pc": 919
+        },
+        {
+          "model": "mm",
+          "phase": 2,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.70384,
+          "renderCpuSeconds": 2.70495,
+          "p50us": 2459.12,
+          "p99us": 4510.15,
+          "rms": 0.0322345,
+          "pcmFnv64": "99cca26c61bb990",
+          "dsp1Cycles": 1184265970,
+          "dsp2Cycles": 1184284249,
+          "dsp1Pc": 2081,
+          "dsp2Pc": 1983
+        }
+      ]
+    },
+    {
+      "run": "1-candidate",
+      "kind": "candidate",
+      "pcmSha256": "57f42ce7ceec413c982cf85b18ac93f4d6e928d009bccf09deeefccbd6d006af",
+      "phases": [
+        {
+          "model": "mm",
+          "phase": 0,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.72327,
+          "renderCpuSeconds": 2.72445,
+          "p50us": 2532.48,
+          "p99us": 4473.98,
+          "rms": 0,
+          "pcmFnv64": "517c05a6d99f8325",
+          "dsp1Cycles": 574387935,
+          "dsp2Cycles": 574406231,
+          "dsp1Pc": 1276,
+          "dsp2Pc": 1048936
+        },
+        {
+          "model": "mm",
+          "phase": 1,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.75642,
+          "renderCpuSeconds": 2.75752,
+          "p50us": 2468.11,
+          "p99us": 5008.8,
+          "rms": 0.06355,
+          "pcmFnv64": "8ee34984ac6c7366",
+          "dsp1Cycles": 879637504,
+          "dsp2Cycles": 879655874,
+          "dsp1Pc": 919,
+          "dsp2Pc": 919
+        },
+        {
+          "model": "mm",
+          "phase": 2,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.59733,
+          "renderCpuSeconds": 2.59838,
+          "p50us": 2425.43,
+          "p99us": 4428.82,
+          "rms": 0.0322345,
+          "pcmFnv64": "99cca26c61bb990",
+          "dsp1Cycles": 1184265970,
+          "dsp2Cycles": 1184284249,
+          "dsp1Pc": 2081,
+          "dsp2Pc": 1983
+        }
+      ]
+    },
+    {
+      "run": "2-candidate",
+      "kind": "candidate",
+      "pcmSha256": "57f42ce7ceec413c982cf85b18ac93f4d6e928d009bccf09deeefccbd6d006af",
+      "phases": [
+        {
+          "model": "mm",
+          "phase": 0,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.69219,
+          "renderCpuSeconds": 2.6933,
+          "p50us": 2510.45,
+          "p99us": 4442.23,
+          "rms": 0,
+          "pcmFnv64": "517c05a6d99f8325",
+          "dsp1Cycles": 574387935,
+          "dsp2Cycles": 574406231,
+          "dsp1Pc": 1276,
+          "dsp2Pc": 1048936
+        },
+        {
+          "model": "mm",
+          "phase": 1,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.89218,
+          "renderCpuSeconds": 2.89322,
+          "p50us": 2637.16,
+          "p99us": 4701.07,
+          "rms": 0.06355,
+          "pcmFnv64": "8ee34984ac6c7366",
+          "dsp1Cycles": 879637504,
+          "dsp2Cycles": 879655874,
+          "dsp1Pc": 919,
+          "dsp2Pc": 919
+        },
+        {
+          "model": "mm",
+          "phase": 2,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.58141,
+          "renderCpuSeconds": 2.58233,
+          "p50us": 2400.54,
+          "p99us": 4325.65,
+          "rms": 0.0322345,
+          "pcmFnv64": "99cca26c61bb990",
+          "dsp1Cycles": 1184265970,
+          "dsp2Cycles": 1184284249,
+          "dsp1Pc": 2081,
+          "dsp2Pc": 1983
+        }
+      ]
+    },
+    {
+      "run": "2-control",
+      "kind": "control",
+      "pcmSha256": "57f42ce7ceec413c982cf85b18ac93f4d6e928d009bccf09deeefccbd6d006af",
+      "phases": [
+        {
+          "model": "mm",
+          "phase": 0,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.63485,
+          "renderCpuSeconds": 2.63594,
+          "p50us": 2454.18,
+          "p99us": 4268.19,
+          "rms": 0,
+          "pcmFnv64": "517c05a6d99f8325",
+          "dsp1Cycles": 574387935,
+          "dsp2Cycles": 574406231,
+          "dsp1Pc": 1276,
+          "dsp2Pc": 1048936
+        },
+        {
+          "model": "mm",
+          "phase": 1,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.71809,
+          "renderCpuSeconds": 2.71909,
+          "p50us": 2485.54,
+          "p99us": 4458.6,
+          "rms": 0.06355,
+          "pcmFnv64": "8ee34984ac6c7366",
+          "dsp1Cycles": 879637504,
+          "dsp2Cycles": 879655874,
+          "dsp1Pc": 919,
+          "dsp2Pc": 919
+        },
+        {
+          "model": "mm",
+          "phase": 2,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.57181,
+          "renderCpuSeconds": 2.57278,
+          "p50us": 2413.45,
+          "p99us": 4220.75,
+          "rms": 0.0322345,
+          "pcmFnv64": "99cca26c61bb990",
+          "dsp1Cycles": 1184265970,
+          "dsp2Cycles": 1184284249,
+          "dsp1Pc": 2081,
+          "dsp2Pc": 1983
+        }
+      ]
+    },
+    {
+      "run": "3-control",
+      "kind": "control",
+      "pcmSha256": "57f42ce7ceec413c982cf85b18ac93f4d6e928d009bccf09deeefccbd6d006af",
+      "phases": [
+        {
+          "model": "mm",
+          "phase": 0,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.56887,
+          "renderCpuSeconds": 2.56996,
+          "p50us": 2431.53,
+          "p99us": 3198.6,
+          "rms": 0,
+          "pcmFnv64": "517c05a6d99f8325",
+          "dsp1Cycles": 574387935,
+          "dsp2Cycles": 574406231,
+          "dsp1Pc": 1276,
+          "dsp2Pc": 1048936
+        },
+        {
+          "model": "mm",
+          "phase": 1,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.70298,
+          "renderCpuSeconds": 2.70322,
+          "p50us": 2461.74,
+          "p99us": 4599.37,
+          "rms": 0.06355,
+          "pcmFnv64": "8ee34984ac6c7366",
+          "dsp1Cycles": 879637504,
+          "dsp2Cycles": 879655874,
+          "dsp1Pc": 919,
+          "dsp2Pc": 919
+        },
+        {
+          "model": "mm",
+          "phase": 2,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.58417,
+          "renderCpuSeconds": 2.58431,
+          "p50us": 2399.45,
+          "p99us": 4361.47,
+          "rms": 0.0322345,
+          "pcmFnv64": "99cca26c61bb990",
+          "dsp1Cycles": 1184265970,
+          "dsp2Cycles": 1184284249,
+          "dsp1Pc": 2081,
+          "dsp2Pc": 1983
+        }
+      ]
+    },
+    {
+      "run": "3-candidate",
+      "kind": "candidate",
+      "pcmSha256": "57f42ce7ceec413c982cf85b18ac93f4d6e928d009bccf09deeefccbd6d006af",
+      "phases": [
+        {
+          "model": "mm",
+          "phase": 0,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.78963,
+          "renderCpuSeconds": 2.79049,
+          "p50us": 2552.23,
+          "p99us": 4455.94,
+          "rms": 0,
+          "pcmFnv64": "517c05a6d99f8325",
+          "dsp1Cycles": 574387935,
+          "dsp2Cycles": 574406231,
+          "dsp1Pc": 1276,
+          "dsp2Pc": 1048936
+        },
+        {
+          "model": "mm",
+          "phase": 1,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.94698,
+          "renderCpuSeconds": 2.94777,
+          "p50us": 2619.11,
+          "p99us": 5658.05,
+          "rms": 0.06355,
+          "pcmFnv64": "8ee34984ac6c7366",
+          "dsp1Cycles": 879637504,
+          "dsp2Cycles": 879655874,
+          "dsp1Pc": 919,
+          "dsp2Pc": 919
+        },
+        {
+          "model": "mm",
+          "phase": 2,
+          "bootFrames": 46464,
+          "frames": 132352,
+          "audioSeconds": 3.00118,
+          "renderWallSeconds": 2.83002,
+          "renderCpuSeconds": 2.83109,
+          "p50us": 2503.22,
+          "p99us": 7108.59,
+          "rms": 0.0322345,
+          "pcmFnv64": "99cca26c61bb990",
+          "dsp1Cycles": 1184265970,
+          "dsp2Cycles": 1184284249,
+          "dsp1Pc": 2081,
+          "dsp2Pc": 1983
+        }
+      ]
+    }
+  ],
+  "environmentOverrides": {
+    "control": {},
+    "candidate": {}
+  },
+  "phases": [
+    {
+      "phase": 0,
+      "controlMedianCpuSeconds": 2.63594,
+      "candidateMedianCpuSeconds": 2.72445,
+      "cpuReductionPercent": -3.3578154282722705
+    },
+    {
+      "phase": 1,
+      "controlMedianCpuSeconds": 2.71909,
+      "candidateMedianCpuSeconds": 2.89322,
+      "cpuReductionPercent": -6.403980743557591
+    },
+    {
+      "phase": 2,
+      "controlMedianCpuSeconds": 2.58431,
+      "candidateMedianCpuSeconds": 2.59838,
+      "cpuReductionPercent": -0.5444393280991999
+    }
+  ],
+  "total": {
+    "controlMedianCpuSeconds": 7.92781,
+    "candidateMedianCpuSeconds": 8.168849999999999,
+    "cpuReductionPercent": -3.040436135578406
+  },
+  "interpretation": "No consistent benefit; prototype restored. Native Linux synthetic workload, not Windows."
+}

@@ -1,0 +1,13 @@
+diff --git a/source/elektron/md/mdLib/mddsp.cpp b/source/elektron/md/mdLib/mddsp.cpp
+index 8abe084..e2341c5 100644
+--- a/source/elektron/md/mdLib/mddsp.cpp
++++ b/source/elektron/md/mdLib/mddsp.cpp
+@@ -52,6 +52,8 @@ namespace md
+ 		// Clock the serial ports from DSP cycles. At 101.6064 MHz, the 1152-cycle
+ 		// codec slot and two slots per frame produce exactly 44.1 kHz; the firmware's
+ 		// ESSI0 divider derives the 96-cycle inter-DSP link slot.
++        const auto* cachedClock = std::getenv("GEARMULATOR_MDMM_CLOCK_CACHE");
++		m_periphX.getEssiClock().setCachedDeadlineEnabled(!cachedClock || std::strcmp(cachedClock, "0") != 0);
+ 		m_periphX.getEssiClock().setExternalClockFrequency(10'240'000);
+ 		m_periphX.getEssiClock().setSamplerate(44100);
+ 		m_periphX.getEssiClock().setClockSource(dsp56k::EsxiClock::ClockSource::Cycles);

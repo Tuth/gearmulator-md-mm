@@ -1,0 +1,228 @@
+diff --git a/source/dsp56kEmu/esaiclock.cpp b/source/dsp56kEmu/esaiclock.cpp
+index 1a9e389c..8189aeaf 100644
+--- a/source/dsp56kEmu/esaiclock.cpp
++++ b/source/dsp56kEmu/esaiclock.cpp
+@@ -18,12 +18,25 @@ namespace dsp56k
+ 	uint32_t EsxiClock::exec() noexcept
+ 	{
+ 		++m_perfExecCount;
++		const auto ic = *m_dspInstructionCounter;
++		if(m_cachedDeadlineEnabled)
++		{
++			const auto elapsed = ic - m_lastExecClock;
++			m_lastExecClock = ic;
++			if(m_cachedGeneration == m_deadlineGeneration && elapsed < m_nextCycleDeadline)
++			{
++				m_nextCycleDeadline -= static_cast<uint32_t>(elapsed);
++				return m_nextCycleDeadline >> static_cast<uint32_t>(m_clockSource);
++			}
++			// If a TX/RX callback mutates the clock during this exec, its newer
++			// generation prevents reuse of the deadline calculated by this call.
++			m_cachedGeneration = m_deadlineGeneration;
++		}
+ 		auto scheduleDelay = [this](const uint32_t _delay)
+ 		{
+ 			m_nextCycleDeadline = _delay;
+ 			return _delay >> static_cast<uint32_t>(m_clockSource);
+ 		};
+-		const auto ic = *m_dspInstructionCounter;
+ 		const auto diff = ic - m_lastClock;
+ 
+ 		// Fine-scheduled ESSIs run at their CRA-derived slot period independently
+@@ -170,6 +183,7 @@ namespace dsp56k
+ 
+ 	void EsxiClock::restartClock()
+ 	{
++		invalidateDeadline();
+ 		m_lastClock = *m_dspInstructionCounter;
+ 		m_periph.setDelayCycles(0);
+ 	}
+@@ -195,6 +209,7 @@ namespace dsp56k
+ 
+ 	void EsxiClock::setClockSource(const DSP* _dsp, const ClockSource _clockSource)
+ 	{
++		invalidateDeadline();
+ 		switch (_clockSource)
+ 		{
+ 		case ClockSource::Instructions:
+@@ -209,6 +224,7 @@ namespace dsp56k
+ 
+ 	void EsxiClock::updateCyclesPerSample()
+ 	{
++		invalidateDeadline();
+ 		uint32_t cyclesPerSample = m_fixedCyclesPerSample;
+ 
+ 		if(!cyclesPerSample)
+@@ -248,6 +264,7 @@ namespace dsp56k
+ 	}
+ 	void EsxiClock::setEsaiDivider(Esxi* _esai, const TWord _dividerTX, const TWord _dividerRX)
+ 	{
++		invalidateDeadline();
+ 		bool found = false;
+ 
+ 		for (auto& entry : m_esais)
+@@ -275,6 +292,7 @@ namespace dsp56k
+ 
+ 	void EsxiClock::setEsaiFinePeriod(Esxi* _esai, const uint32_t _finePeriod)
+ 	{
++		invalidateDeadline();
+ 		// Anchor the fine phase at "now" so enabling fine-link mode does not emit an
+ 		// initial catch-up burst (fork parity: EsxiClock::setEsaiFinePeriod).
+ 		uint64_t now = m_dspInstructionCounter ? *m_dspInstructionCounter : 0;
+@@ -313,6 +331,7 @@ namespace dsp56k
+ 
+ 	bool EsxiClock::shiftEsaiFineAnchor(const Esxi* _esai, const int64_t _cycles)
+ 	{
++		invalidateDeadline();
+ 		// Shift a fine-mode port's clock anchor. Positive values delay its next
+ 		// slot; negative values advance it.
+ 		for (auto& entry : m_esais)
+@@ -328,6 +347,7 @@ namespace dsp56k
+ 
+ 	bool EsxiClock::setEsaiCounter(const Esxi* _esai, const int _counterTX, const int _counterRX)
+ 	{
++		invalidateDeadline();
+ 		for (auto& esai : m_esais)
+ 		{
+ 			if(esai.esai == _esai)
+diff --git a/source/dsp56kEmu/esaiclock.h b/source/dsp56kEmu/esaiclock.h
+index 61e375fe..cdaade97 100644
+--- a/source/dsp56kEmu/esaiclock.h
++++ b/source/dsp56kEmu/esaiclock.h
+@@ -25,6 +25,13 @@ namespace dsp56k
+ 
+ 		EsxiClock(IPeripherals& _peripherals);
+ 		uint32_t exec() noexcept;
++		// Opt-in: reuse the known serial deadline between serial edges. Other
++		// peripheral sources continue to execute through their existing scheduler.
++		void setCachedDeadlineEnabled(bool _enabled)
++		{
++			m_cachedDeadlineEnabled = _enabled;
++			invalidateDeadline();
++		}
+ 
+ 		void setPCTL(TWord _val);
+ 		TWord getPCTL() const { return m_pctl; }
+@@ -76,9 +83,13 @@ namespace dsp56k
+ 		void setClockSource(const DSP* _dsp, ClockSource _clockSource);
+ 
+ 		void updateCyclesPerSample();
++		void invalidateDeadline() { ++m_deadlineGeneration; }
+ 
+ 		const uint64_t* m_dspInstructionCounter = nullptr;
+ 		uint64_t m_lastClock = 0;
++		uint64_t m_lastExecClock = 0;
++		uint64_t m_deadlineGeneration = 1, m_cachedGeneration = 0;
++		bool m_cachedDeadlineEnabled = false;
+ 		uint32_t m_nextCycleDeadline = 0;
+ 		uint64_t m_perfExecCount = 0;
+ 		uint32_t m_cyclesPerSample = 2133;				// estimated cycles per sample before calculated
+diff --git a/source/dsp56kTestRunner/CMakeLists.txt b/source/dsp56kTestRunner/CMakeLists.txt
+index 4bc1054f..6809523e 100644
+--- a/source/dsp56kTestRunner/CMakeLists.txt
++++ b/source/dsp56kTestRunner/CMakeLists.txt
+@@ -22,3 +22,8 @@ target_sources(dsp56kAccumulatorTests PRIVATE accumulatorTests.cpp manualAccumul
+ target_link_libraries(dsp56kAccumulatorTests PRIVATE dsp56kEmu)
+ add_test(NAME dsp56300_accumulatorTests COMMAND dsp56kAccumulatorTests)
+ set_tests_properties(dsp56300_accumulatorTests PROPERTIES LABELS "UnitTest;dsp56300" TIMEOUT 120)
++
++add_executable(dsp56kSerialClockDeadlineTest serialClockDeadlineTest.cpp)
++target_link_libraries(dsp56kSerialClockDeadlineTest PRIVATE dsp56kEmu)
++add_test(NAME dsp56300_serialClockDeadlineTest COMMAND dsp56kSerialClockDeadlineTest)
++set_tests_properties(dsp56300_serialClockDeadlineTest PROPERTIES LABELS "UnitTest;dsp56300" TIMEOUT 30)
+diff --git a/source/dsp56kTestRunner/serialClockDeadlineTest.cpp b/source/dsp56kTestRunner/serialClockDeadlineTest.cpp
+new file mode 100644
+index 00000000..9be3ca48
+--- /dev/null
++++ b/source/dsp56kTestRunner/serialClockDeadlineTest.cpp
+@@ -0,0 +1,90 @@
++#include "dsp56kEmu/dsp.h"
++#include "dsp56kEmu/esxi.h"
++#include <functional>
++#include <iostream>
++#include <stdexcept>
++#include <utility>
++#include <vector>
++
++namespace {
++using namespace dsp56k;
++struct Port : Esxi {
++    bool tx = true, rx = true, mutated = false;
++    uint64_t now = 0;
++    std::vector<std::pair<uint64_t, bool>> events;
++    std::function<void()> onTransmit;
++    void execTX() override {
++        events.emplace_back(now, true);
++        if(onTransmit && !mutated) { mutated = true; onTransmit(); }
++    }
++    void execRX() override { events.emplace_back(now, false); }
++    TWord hasEnabledTransmitters() const override { return tx; }
++    TWord hasEnabledReceivers() const override { return rx; }
++};
++struct Fixture {
++    DefaultMemoryValidator validator;
++    Memory memory{validator, 0x1000};
++    Peripherals56303 x;
++    PeripheralsNop y;
++    DSP dsp{memory, &x, &y};
++    EsxiClock clock{x};
++    Port fine, base;
++    explicit Fixture(bool cached) {
++        clock.setDSP(&dsp);
++        clock.setClockSource(EsxiClock::ClockSource::Cycles);
++        clock.setCyclesPerSample(64);
++        clock.setEsaiDivider(&fine, 0);
++        clock.setEsaiDivider(&base, 1, 2);
++        clock.setEsaiFinePeriod(&fine, 19);
++        clock.setCachedDeadlineEnabled(cached);
++    }
++    void setTime(uint64_t instruction, uint64_t cycle) {
++        // Drive counters on a mutable fixture; no instructions execute here.
++        const_cast<uint64_t&>(dsp.getInstructionCounter()) = instruction;
++        const_cast<uint64_t&>(dsp.getCycles()) = cycle;
++        fine.now = base.now = cycle;
++    }
++    void mutate(unsigned step) {
++        if(step % 97 == 0) clock.setEsaiFinePeriod(&fine, step % 194 ? 23 : 0);
++        if(step % 131 == 0) clock.setCyclesPerSample(32 + step % 81);
++        if(step % 173 == 0) {
++            clock.setClockSource(step % 346 ? EsxiClock::ClockSource::Instructions : EsxiClock::ClockSource::Cycles);
++            clock.restartClock();
++            clock.setEsaiFinePeriod(&fine, 19);
++        }
++        if(step % 43 == 0) { fine.tx = !fine.tx; base.rx = !base.rx; }
++        if(step % 67 == 0) clock.setEsaiDivider(&base, step % 3, step % 4);
++        if(step % 89 == 0) clock.setEsaiCounter(&base, 0, 1);
++        if(step % 113 == 0 && step > 200) clock.shiftEsaiFineAnchor(&fine, -1);
++        if(step % 251 == 0) clock.setSpeedPercent(step % 502 ? 125 : 100);
++    }
++};
++void require(bool ok, const char* message) { if(!ok) throw std::runtime_error(message); }
++}
++int main() try {
++    Fixture original(false), cached(true);
++    uint64_t instructions = 0, cycles = 0;
++    uint32_t random = 0xabcde123;
++    for(unsigned step = 1; step <= 5000; ++step) {
++        random = random * 1664525u + 1013904223u;
++        instructions += (random >> 8) % 9;
++        cycles += step % 19 == 0 ? 193 : random % 17;
++        for(auto* f : {&original, &cached}) {
++            f->setTime(instructions, cycles);
++            f->mutate(step);
++            if(step == 777) f->fine.onTransmit = [f] {
++                f->clock.setCyclesPerSample(79);
++                f->clock.setEsaiDivider(&f->base, 2, 1);
++            };
++        }
++        require(original.clock.exec() == cached.clock.exec(), "instruction delay differs");
++        require(original.clock.getNextCycleDeadline() == cached.clock.getNextCycleDeadline(), "cycle deadline differs");
++        require(original.clock.getLastClock() == cached.clock.getLastClock(), "base phase differs");
++        require(original.fine.events == cached.fine.events && original.base.events == cached.base.events,
++            "serial TX/RX event timestamp or order differs");
++    }
++    require(original.fine.mutated && cached.fine.mutated, "reentrant mutation not exercised");
++    require(!original.fine.events.empty() && !original.base.events.empty(), "fixture generated no events");
++    std::cout << "Serial clock cached deadlines: PASS\n";
++    return 0;
++} catch(const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }

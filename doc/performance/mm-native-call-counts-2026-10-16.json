@@ -1,0 +1,13 @@
+{
+  "method": "GNU gprof -pg; moncontrol excludes boot and settle; three approximately 3-second MM render phases including harness work",
+  "scope": "Instrumented native call counts only. Generated JIT code and shared libraries are not fully represented; do not interpret gprof percentages as whole-emulator CPU shares.",
+  "counts": {
+    "TurboMidiTransfer::ownsMidiWire": 106356858,
+    "m68k_read_immediate_16": 107889512,
+    "EsxiClock::exec": 30075115,
+    "Peripherals56303::exec": 30075115,
+    "Hardware::processUC": 12053429,
+    "Hardware::schedStep": 806009
+  },
+  "productionChangesRetained": false
+}

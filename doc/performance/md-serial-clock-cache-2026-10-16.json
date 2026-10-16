@@ -1,0 +1,161 @@
+{
+  "controlSha256": "99e02ba013a316e1f7d028e88987b913d22ed03166381fe1906bbdf5ac2d975c",
+  "candidateSha256": "99e02ba013a316e1f7d028e88987b913d22ed03166381fe1906bbdf5ac2d975c",
+  "firmwareSha1": "a872a2f3527063673d6ea6d3080c4c62ef0cadc1",
+  "model": "md",
+  "secondsPerPhase": 1,
+  "repeats": 1,
+  "cpuAffinity": 2,
+  "runs": [
+    {
+      "run": "1-control",
+      "kind": "control",
+      "pcmSha256": "cb630f2502246212ed954ab6f3e428d8247f4d8893cd39f16dd04174c0c1e6ce",
+      "phases": [
+        {
+          "model": "md",
+          "phase": 0,
+          "bootFrames": 789888,
+          "frames": 44160,
+          "audioSeconds": 1.00136,
+          "renderWallSeconds": 0.841188,
+          "renderCpuSeconds": 0.841503,
+          "p50us": 2179.75,
+          "p99us": 4504.36,
+          "rms": 0,
+          "pcmFnv64": "b4b95845f9a79325",
+          "dsp1Cycles": 1113165810,
+          "dsp2Cycles": 1113140360,
+          "dsp1Pc": 608,
+          "dsp2Pc": 189
+        },
+        {
+          "model": "md",
+          "phase": 1,
+          "bootFrames": 789888,
+          "frames": 44160,
+          "audioSeconds": 1.00136,
+          "renderWallSeconds": 0.918765,
+          "renderCpuSeconds": 0.919051,
+          "p50us": 2287.01,
+          "p99us": 9857.97,
+          "rms": 0.0730296,
+          "pcmFnv64": "f1c7b8cf782f0b22",
+          "dsp1Cycles": 1214910407,
+          "dsp2Cycles": 1214884999,
+          "dsp1Pc": 558,
+          "dsp2Pc": 191
+        },
+        {
+          "model": "md",
+          "phase": 2,
+          "bootFrames": 789888,
+          "frames": 44160,
+          "audioSeconds": 1.00136,
+          "renderWallSeconds": 0.829317,
+          "renderCpuSeconds": 0.829747,
+          "p50us": 2339.23,
+          "p99us": 3911.87,
+          "rms": 0.0587204,
+          "pcmFnv64": "636f32f2335a2551",
+          "dsp1Cycles": 1316655056,
+          "dsp2Cycles": 1316629639,
+          "dsp1Pc": 558,
+          "dsp2Pc": 191
+        }
+      ]
+    },
+    {
+      "run": "1-candidate",
+      "kind": "candidate",
+      "pcmSha256": "cb630f2502246212ed954ab6f3e428d8247f4d8893cd39f16dd04174c0c1e6ce",
+      "phases": [
+        {
+          "model": "md",
+          "phase": 0,
+          "bootFrames": 789888,
+          "frames": 44160,
+          "audioSeconds": 1.00136,
+          "renderWallSeconds": 0.814409,
+          "renderCpuSeconds": 0.814722,
+          "p50us": 2154.74,
+          "p99us": 3918.48,
+          "rms": 0,
+          "pcmFnv64": "b4b95845f9a79325",
+          "dsp1Cycles": 1113165810,
+          "dsp2Cycles": 1113140360,
+          "dsp1Pc": 608,
+          "dsp2Pc": 189
+        },
+        {
+          "model": "md",
+          "phase": 1,
+          "bootFrames": 789888,
+          "frames": 44160,
+          "audioSeconds": 1.00136,
+          "renderWallSeconds": 1.10108,
+          "renderCpuSeconds": 1.10163,
+          "p50us": 2639.47,
+          "p99us": 9099.2,
+          "rms": 0.0730296,
+          "pcmFnv64": "f1c7b8cf782f0b22",
+          "dsp1Cycles": 1214910407,
+          "dsp2Cycles": 1214884999,
+          "dsp1Pc": 558,
+          "dsp2Pc": 191
+        },
+        {
+          "model": "md",
+          "phase": 2,
+          "bootFrames": 789888,
+          "frames": 44160,
+          "audioSeconds": 1.00136,
+          "renderWallSeconds": 0.915006,
+          "renderCpuSeconds": 0.915444,
+          "p50us": 2466.64,
+          "p99us": 5358.99,
+          "rms": 0.0587204,
+          "pcmFnv64": "636f32f2335a2551",
+          "dsp1Cycles": 1316655056,
+          "dsp2Cycles": 1316629639,
+          "dsp1Pc": 558,
+          "dsp2Pc": 191
+        }
+      ]
+    }
+  ],
+  "environmentOverrides": {
+    "control": {
+      "GEARMULATOR_MDMM_CLOCK_CACHE": "0"
+    },
+    "candidate": {
+      "GEARMULATOR_MDMM_CLOCK_CACHE": "1"
+    }
+  },
+  "phases": [
+    {
+      "phase": 0,
+      "controlMedianCpuSeconds": 0.841503,
+      "candidateMedianCpuSeconds": 0.814722,
+      "cpuReductionPercent": 3.1825198484140893
+    },
+    {
+      "phase": 1,
+      "controlMedianCpuSeconds": 0.919051,
+      "candidateMedianCpuSeconds": 1.10163,
+      "cpuReductionPercent": -19.866035725982577
+    },
+    {
+      "phase": 2,
+      "controlMedianCpuSeconds": 0.829747,
+      "candidateMedianCpuSeconds": 0.915444,
+      "cpuReductionPercent": -10.328087959341836
+    }
+  ],
+  "total": {
+    "controlMedianCpuSeconds": 2.590301,
+    "candidateMedianCpuSeconds": 2.831796,
+    "cpuReductionPercent": -9.323047784794113
+  },
+  "interpretation": "Rejected MM optimization: no stable benefit. MD smoke checks correctness only; timings overlap compilation."
+}
